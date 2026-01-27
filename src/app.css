@@ -1,0 +1,105 @@
+/* CSS Reset and Base Styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  line-height: 1.5;
+  color: #212529;
+  background: #ffffff;
+}
+
+/* CSS Variables for Theming */
+:root {
+  /* Editor colors */
+  --editor-bg: #ffffff;
+  --editor-text: #212529;
+  --editor-gutter-bg: #f8f9fa;
+  --editor-gutter-text: #6c757d;
+  --editor-line-active: #f1f3f4;
+
+  /* Preview colors */
+  --preview-bg: #ffffff;
+
+  /* UI colors */
+  --ui-bg: #ffffff;
+  --ui-bg-secondary: #f8f9fa;
+  --ui-border: #e9ecef;
+  --ui-text: #212529;
+  --ui-text-secondary: #6c757d;
+
+  /* Accent colors */
+  --accent-primary: #4C78A8;
+  --accent-primary-hover: #3d6085;
+  --accent-success: #28a745;
+  --accent-warning: #ffc107;
+  --accent-error: #dc3545;
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ced4da;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Button reset */
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Link styles */
+a {
+  color: var(--accent-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
