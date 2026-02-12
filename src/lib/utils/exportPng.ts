@@ -22,16 +22,20 @@ export function exportToPng(
     height = parseFloat(svgEl.getAttribute('height') || '600');
   }
 
-  // Inject white background as first child of SVG
+  // Inject white background as first child of SVG using absolute dimensions
   const rect = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  rect.setAttribute('width', '100%');
-  rect.setAttribute('height', '100%');
+  rect.setAttribute('x', viewBox ? viewBox.split(/[\s,]+/)[0] : '0');
+  rect.setAttribute('y', viewBox ? viewBox.split(/[\s,]+/)[1] : '0');
+  rect.setAttribute('width', String(width));
+  rect.setAttribute('height', String(height));
   rect.setAttribute('fill', '#ffffff');
   svgEl.insertBefore(rect, svgEl.firstChild);
 
   // Ensure SVG has explicit dimensions for rasterization
   svgEl.setAttribute('width', String(width));
   svgEl.setAttribute('height', String(height));
+  // Remove max-width style that Mermaid adds
+  svgEl.style.removeProperty('max-width');
 
   const serializer = new XMLSerializer();
   const svgData = serializer.serializeToString(svgEl);

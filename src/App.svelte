@@ -51,6 +51,19 @@
     lastRenderedSvg = svg;
   }
 
+  function handleEditLabel(oldLabel: string, newLabel: string) {
+    const doc = diagramStore.getDocument();
+    const escaped = oldLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Replace the label inside any bracket type: [] () {}
+    const newCode = doc.code.replace(
+      new RegExp(`([\\[\\(\\{])\\s*${escaped}\\s*([\\]\\)\\}])`, 'g'),
+      `$1${newLabel}$2`
+    );
+    if (newCode !== doc.code) {
+      diagramStore.updateCode(newCode);
+    }
+  }
+
   function handleSplitChange(position: number) {
     uiStore.setSplitPosition(position);
   }
@@ -98,7 +111,6 @@
       if (result.success) {
         if (result.handle && result.handle !== handle) {
           diagramStore.setFileHandle(result.handle);
-          // Update name from file handle
           const file = await result.handle.getFile();
           const name = file.name.replace(/\.(mmd|mermaid)$/, '');
           diagramStore.updateName(name);
@@ -160,7 +172,12 @@
       {/snippet}
 
       {#snippet right()}
-        <Preview code={currentCode} onerror={handleError} onrender={handleRender} />
+        <Preview
+          code={currentCode}
+          onerror={handleError}
+          onrender={handleRender}
+          oneditlabel={handleEditLabel}
+        />
       {/snippet}
     </SplitPane>
   </main>
