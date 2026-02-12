@@ -167,7 +167,7 @@
       {#snippet left()}
         <div class="editor-panel">
           <Editor value={currentCode} onchange={handleCodeChange} />
-          <ErrorDisplay {error} />
+          <ErrorDisplay {error} code={currentCode} />
         </div>
       {/snippet}
 

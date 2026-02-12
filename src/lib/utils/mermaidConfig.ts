@@ -66,9 +66,14 @@ export async function renderDiagram(
     return { svg, error: null };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    // Extract just the error message, not the full stack
-    const cleanMessage = message.split('\n')[0].replace(/^Error:\s*/, '');
-    return { svg: '', error: cleanMessage };
+    // Keep meaningful lines from the error, strip stack traces
+    const cleanMessage = message
+      .split('\n')
+      .filter(line => !line.match(/^\s+at\s/) && line.trim().length > 0)
+      .map(line => line.replace(/^Error:\s*/, '').trim())
+      .filter(Boolean)
+      .join('\n');
+    return { svg: '', error: cleanMessage || 'Unknown syntax error' };
   }
 }
 
