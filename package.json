@@ -10,16 +10,17 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "mermaid": "^11.4.0",
+    "@codemirror/autocomplete": "^6.18.4",
+    "@codemirror/commands": "^6.8.0",
     "@codemirror/lang-javascript": "^6.2.2",
     "@codemirror/language": "^6.10.8",
+    "@codemirror/search": "^6.5.10",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.4",
-    "@codemirror/commands": "^6.8.0",
-    "@codemirror/autocomplete": "^6.18.4",
-    "@codemirror/search": "^6.5.10",
+    "@iconify-json/lucide": "^1.2.90",
     "@lezer/highlight": "^1.2.1",
-    "codemirror": "^6.0.1"
+    "codemirror": "^6.0.1",
+    "mermaid": "^11.4.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",

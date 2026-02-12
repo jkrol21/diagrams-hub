@@ -9,6 +9,7 @@
   import { diagramStore, code, documentName } from './lib/stores/diagram';
   import { uiStore } from './lib/stores/ui';
   import { openFile, saveDiagram, saveAs } from './lib/utils/fileSystem';
+  import { exportToPng } from './lib/utils/exportPng';
   import type { DiagramDocument } from './lib/types';
 
   let error = $state<string | null>(null);
@@ -16,6 +17,7 @@
   let currentCode = $state('');
   let currentName = $state('Untitled');
   let saveStatus = $state<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
+  let lastRenderedSvg = $state<string | null>(null);
 
   // Subscribe to stores
   $effect(() => {
@@ -43,6 +45,10 @@
     } else {
       diagramStore.clearErrors();
     }
+  }
+
+  function handleRender(svg: string) {
+    lastRenderedSvg = svg;
   }
 
   function handleSplitChange(position: number) {
@@ -121,6 +127,12 @@
     }
   }
 
+  function handleExport() {
+    if (lastRenderedSvg) {
+      exportToPng(lastRenderedSvg, currentName, 2);
+    }
+  }
+
   // Calculate line count
   const lineCount = $derived(currentCode.split('\n').length);
 </script>
@@ -131,6 +143,8 @@
     onopen={handleOpen}
     onsave={handleSave}
     onsaveas={handleSaveAs}
+    onexport={handleExport}
+    exportDisabled={!lastRenderedSvg}
   />
 
   <main class="main-content">
@@ -146,7 +160,7 @@
       {/snippet}
 
       {#snippet right()}
-        <Preview code={currentCode} onerror={handleError} />
+        <Preview code={currentCode} onerror={handleError} onrender={handleRender} />
       {/snippet}
     </SplitPane>
   </main>

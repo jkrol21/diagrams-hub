@@ -4,12 +4,27 @@ import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage'
 
 const STORAGE_KEY = 'mermaid-editor:active';
 
-const DEFAULT_CODE = `flowchart TD
-    A[Start] --> B{Is it working?}
-    B -->|Yes| C[Great!]
-    B -->|No| D[Debug]
-    D --> B
-    C --> E[End]`;
+const DEFAULT_CODE = `architecture-beta
+    group api(lucide:cloud)[API Layer]
+    group backend(lucide:server)[Backend Services]
+    group data(lucide:database)[Data Layer]
+
+    service gateway(lucide:globe)[API Gateway] in api
+    service auth(lucide:shield)[Auth Service] in api
+
+    service app(lucide:cpu)[App Server] in backend
+    service worker(lucide:zap)[Worker] in backend
+    service cache(lucide:hard-drive)[Cache] in backend
+
+    service db(lucide:database)[Database] in data
+    service storage(lucide:container)[Object Store] in data
+
+    gateway:R --> L:app
+    auth:R --> L:app
+    app:R --> L:cache
+    app:B --> T:db
+    worker:B --> T:db
+    worker:R --> L:storage`;
 
 function createDiagramStore() {
   const stored = loadFromLocalStorage<DiagramDocument>(STORAGE_KEY);

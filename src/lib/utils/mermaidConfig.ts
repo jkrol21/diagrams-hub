@@ -1,6 +1,17 @@
 import mermaid from 'mermaid';
 import type { ThemeConfig } from '../types';
 
+/** Register Lucide icon pack for architecture diagrams */
+export async function registerArchitectureIcons(): Promise<void> {
+  const { icons } = await import('@iconify-json/lucide');
+  mermaid.registerIconPacks([
+    {
+      name: icons.prefix,
+      icons
+    }
+  ]);
+}
+
 /** Initialize Mermaid with a theme configuration */
 export function initializeMermaid(theme: ThemeConfig): void {
   mermaid.initialize({
@@ -9,7 +20,11 @@ export function initializeMermaid(theme: ThemeConfig): void {
     themeVariables: mapThemeToMermaid(theme),
     securityLevel: 'loose',
     fontFamily: theme.fonts.fontFamily,
-    fontSize: theme.fonts.fontSize
+    fontSize: theme.fonts.fontSize,
+    architecture: {
+      iconSize: 72,
+      padding: 40
+    }
   });
 }
 
@@ -27,7 +42,10 @@ export function mapThemeToMermaid(theme: ThemeConfig): Record<string, string | n
     textColor: theme.colors.textColor,
     nodeTextColor: theme.colors.nodeTextColor,
     fontFamily: theme.fonts.fontFamily,
-    fontSize: `${theme.fonts.fontSize}px`
+    fontSize: `${theme.fonts.fontSize}px`,
+    archEdgeColor: '#4C78A8',
+    archEdgeArrowColor: '#4C78A8',
+    archGroupBorderColor: '#dee2e6'
   };
 }
 

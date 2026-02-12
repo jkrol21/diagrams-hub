@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { initializeMermaid, renderDiagram, generateMermaidId } from '../utils/mermaidConfig';
+  import { initializeMermaid, registerArchitectureIcons, renderDiagram, generateMermaidId } from '../utils/mermaidConfig';
   import { themeStore } from '../stores/theme';
 
   interface Props {
     code: string;
     onerror: (error: string | null) => void;
+    onrender?: (svg: string) => void;
   }
 
-  let { code, onerror }: Props = $props();
+  let { code, onerror, onrender }: Props = $props();
 
   let svgContent = $state('');
   let isLoading = $state(true);
@@ -18,6 +19,9 @@
   onMount(() => {
     // Initialize Mermaid with current theme
     initializeMermaid(themeStore.getTheme());
+
+    // Register Lucide icons for architecture diagrams
+    registerArchitectureIcons();
 
     // Subscribe to theme changes
     const unsubscribe = themeStore.subscribe((theme) => {
@@ -56,6 +60,7 @@
       } else {
         onerror(null);
         svgContent = svg;
+        onrender?.(svg);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Rendering failed';

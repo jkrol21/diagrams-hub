@@ -4,9 +4,11 @@
     onopen: () => void;
     onsave: () => void;
     onsaveas: () => void;
+    onexport: () => void;
+    exportDisabled?: boolean;
   }
 
-  let { onnew, onopen, onsave, onsaveas }: Props = $props();
+  let { onnew, onopen, onsave, onsaveas, onexport, exportDisabled = false }: Props = $props();
 </script>
 
 <div class="toolbar">
@@ -55,7 +57,17 @@
   </div>
 
   <div class="toolbar-right">
-    <!-- Placeholder for future theme/export buttons -->
+    <button
+      class="toolbar-btn export-btn"
+      onclick={onexport}
+      disabled={exportDisabled}
+      title="Export as PNG"
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+      </svg>
+      Export PNG
+    </button>
   </div>
 </div>
 
@@ -131,6 +143,35 @@
   .toolbar-btn svg {
     width: 16px;
     height: 16px;
+  }
+
+  .toolbar-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  .toolbar-btn:disabled:hover {
+    background: transparent;
+    color: #495057;
+  }
+
+  .export-btn {
+    background: #4C78A8;
+    color: #ffffff;
+  }
+
+  .export-btn:hover {
+    background: #3d6189;
+    color: #ffffff;
+  }
+
+  .export-btn:active {
+    background: #345578;
+  }
+
+  .export-btn:disabled {
+    background: #4C78A8;
+    color: #ffffff;
   }
 
   .toolbar-divider {
