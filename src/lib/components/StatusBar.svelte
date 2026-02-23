@@ -1,13 +1,15 @@
 <script lang="ts">
   import type { SaveStatus } from '../types';
+  import type { DiagramMode } from '../utils/diagramMode';
 
   interface Props {
     documentName: string;
     saveStatus: SaveStatus;
     lineCount: number;
+    mode?: DiagramMode;
   }
 
-  let { documentName, saveStatus, lineCount }: Props = $props();
+  let { documentName, saveStatus, lineCount, mode = 'mermaid' }: Props = $props();
 
   const statusLabels: Record<SaveStatus, string> = {
     saved: 'Saved',
@@ -28,6 +30,9 @@
     </span>
   </div>
   <div class="status-right">
+    <span class="mode-badge" class:excalidraw={mode === 'excalidraw'}>
+      {mode === 'excalidraw' ? 'Excalidraw' : 'Mermaid'}
+    </span>
     <span class="line-count">{lineCount} lines</span>
   </div>
 </div>
@@ -84,5 +89,20 @@
 
   .line-count {
     color: #6c757d;
+  }
+
+  .mode-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: #e9f3ff;
+    color: #3b71ca;
+    letter-spacing: 0.02em;
+  }
+
+  .mode-badge.excalidraw {
+    background: #fff3e0;
+    color: #e07800;
   }
 </style>

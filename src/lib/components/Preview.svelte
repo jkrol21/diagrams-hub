@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { initializeMermaid, registerArchitectureIcons, renderDiagram, generateMermaidId } from '../utils/mermaidConfig';
+  import { renderExcalidraw } from '../utils/excalidrawRender';
+  import { detectDiagramMode } from '../utils/diagramMode';
   import { themeStore } from '../stores/theme';
 
   interface Props {
@@ -68,10 +70,17 @@
     }
 
     isLoading = true;
-    const elementId = generateMermaidId();
+    const mode = detectDiagramMode(code);
 
     try {
-      const { svg, error } = await renderDiagram(code, elementId);
+      let svg: string;
+      let error: string | null;
+
+      if (mode === 'excalidraw') {
+        ({ svg, error } = await renderExcalidraw(code, { embedFont: true }));
+      } else {
+        ({ svg, error } = await renderDiagram(code, generateMermaidId()));
+      }
 
       if (error) {
         onerror(error);
@@ -275,7 +284,7 @@
     </div>
   {:else}
     <div class="empty-state">
-      <p>Enter Mermaid code to see the preview</p>
+      <p>Enter Mermaid or Excalidraw JSON to see the preview</p>
     </div>
   {/if}
 

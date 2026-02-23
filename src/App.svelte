@@ -10,6 +10,7 @@
   import { uiStore } from './lib/stores/ui';
   import { openFile, saveDiagram, saveAs } from './lib/utils/fileSystem';
   import { exportToPng } from './lib/utils/exportPng';
+  import { detectDiagramMode } from './lib/utils/diagramMode';
   import type { DiagramDocument } from './lib/types';
 
   let error = $state<string | null>(null);
@@ -147,6 +148,7 @@
 
   // Calculate line count
   const lineCount = $derived(currentCode.split('\n').length);
+  const diagramMode = $derived(detectDiagramMode(currentCode));
 </script>
 
 <div class="app">
@@ -186,6 +188,7 @@
     documentName={currentName}
     {saveStatus}
     {lineCount}
+    mode={diagramMode}
   />
 </div>
 

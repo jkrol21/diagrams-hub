@@ -17,10 +17,12 @@
     "@codemirror/search": "^6.5.10",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.4",
+    "@fontsource/caveat": "^5.2.8",
     "@iconify-json/lucide": "^1.2.90",
     "@lezer/highlight": "^1.2.1",
     "codemirror": "^6.0.1",
-    "mermaid": "^11.4.0"
+    "mermaid": "^11.4.0",
+    "roughjs": "^4.6.6"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
