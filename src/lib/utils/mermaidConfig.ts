@@ -1,15 +1,24 @@
 import mermaid from 'mermaid';
 import type { ThemeConfig } from '../types';
+import { hubIcons } from '../icons/hub';
+import { buildLogoIconPack } from '../icons/logos';
 
-/** Register Lucide icon pack for architecture diagrams */
+/** Register all icon packs for architecture diagrams (Lucide + Hub + Logos) */
 export async function registerArchitectureIcons(): Promise<void> {
   const { icons } = await import('@iconify-json/lucide');
-  mermaid.registerIconPacks([
-    {
-      name: icons.prefix,
-      icons
-    }
-  ]);
+
+  const packs: Parameters<typeof mermaid.registerIconPacks>[0] = [
+    { name: icons.prefix, icons },
+    { name: hubIcons.prefix, icons: hubIcons },
+  ];
+
+  // Add logo pack if any logo files exist in src/assets/logos/
+  const logoPack = await buildLogoIconPack();
+  if (logoPack) {
+    packs.push({ name: logoPack.prefix, icons: logoPack });
+  }
+
+  mermaid.registerIconPacks(packs);
 }
 
 /** Initialize Mermaid with a theme configuration */

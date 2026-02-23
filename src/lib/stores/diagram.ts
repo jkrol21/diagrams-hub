@@ -5,22 +5,22 @@ import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage'
 const STORAGE_KEY = 'mermaid-editor:active';
 
 const DEFAULT_CODE = `architecture-beta
-    group api(lucide:cloud)[API Layer]
-    group backend(lucide:server)[Backend Services]
+    group api(hub:network)[API Layer]
+    group backend(hub:vps)[Backend Services]
     group data(lucide:database)[Data Layer]
 
     service gateway(lucide:globe)[API Gateway] in api
-    service auth(lucide:shield)[Auth Service] in api
+    service fw(hub:firewall)[Firewall] in api
 
-    service app(lucide:cpu)[App Server] in backend
+    service app(hub:service)[App Service] in backend
     service worker(lucide:zap)[Worker] in backend
     service cache(lucide:hard-drive)[Cache] in backend
 
     service db(lucide:database)[Database] in data
-    service storage(lucide:container)[Object Store] in data
+    service storage(hub:bucket)[Object Store] in data
 
-    gateway:R --> L:app
-    auth:R --> L:app
+    gateway:R --> L:fw
+    fw:R --> L:app
     app:R --> L:cache
     app:B --> T:db
     worker:B --> T:db
