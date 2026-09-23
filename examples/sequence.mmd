@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web App
+    participant A as Auth Service
+    participant O as Order Service
+    U->>W: Place order
+    W->>A: Validate token
+    A-->>W: OK
+    W->>O: POST /orders
+    alt in stock
+        O-->>W: 201 Created
+        W-->>U: Confirmation
+    else out of stock
+        O-->>W: 409 Conflict
+        W-->>U: Show error
+    end
+    Note over W,O: All calls use mTLS

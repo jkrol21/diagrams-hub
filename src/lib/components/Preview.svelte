@@ -4,6 +4,7 @@
   import { renderExcalidraw } from '../utils/excalidrawRender';
   import { detectDiagramMode } from '../utils/diagramMode';
   import { themeStore } from '../stores/theme';
+  import { svgSize, normalizeSvgSize } from '../utils/svg';
   import { locateMermaidElement, locateExcalidrawElement, type SourceRange } from '../utils/sourceMap';
 
   interface Props {
@@ -36,6 +37,15 @@
   let dragStartPanY = 0;
   let didDrag = false;
   let hasFitted = false;
+  // Keep fitting the diagram to the view until the user zooms or pans themselves
+  let autoFit = true;
+  let lastKind = '';
+  let lastSize = { width: 0, height: 0 };
+  let canvasBackground = $state(themeStore.getTheme().colors.background);
+
+  const MIN_ZOOM = 0.05;
+  const MAX_ZOOM = 10;
+  const MAX_FIT_ZOOM = 2;
 
   // Inline text editing state
   let editingText = $state<string | null>(null);
@@ -48,13 +58,20 @@
     registerArchitectureIcons();
 
     const unsubscribe = themeStore.subscribe((theme) => {
+      canvasBackground = theme.colors.background;
       initializeMermaid(theme);
       debouncedRender();
     });
 
+    const resizeObserver = new ResizeObserver(() => {
+      if (autoFit && svgContent) fitToView();
+    });
+    resizeObserver.observe(container);
+
     return () => {
       clearTimeout(renderTimeout);
       unsubscribe();
+      resizeObserver.disconnect();
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -91,13 +108,22 @@
         svgContent = '';
       } else {
         onerror(null);
+        svg = normalizeSvgSize(svg);
         svgContent = svg;
         onrender?.(svg);
-        if (!hasFitted) {
+
+        // Refit on first render, while auto-fitting, or when a different
+        // diagram was loaded/pasted (other type or very different size)
+        const kind = diagramKind(code);
+        await tick();
+        const size = currentSvgSize();
+        const ratio = lastSize.width ? (size.width * size.height) / (lastSize.width * lastSize.height) : 1;
+        if (!hasFitted || autoFit || kind !== lastKind || ratio > 3 || ratio < 1 / 3) {
           hasFitted = true;
-          await tick();
           fitToView();
         }
+        lastKind = kind;
+        lastSize = size;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Rendering failed';
@@ -108,20 +134,38 @@
     isLoading = false;
   }
 
+  /** First keyword of the source, e.g. "classDiagram" or "excalidraw" */
+  function diagramKind(source: string): string {
+    if (detectDiagramMode(source) === 'excalidraw') return 'excalidraw';
+    const line = source.split('\n').find((l) => l.trim() && !l.trim().startsWith('%%'));
+    return line?.trim().split(/\s+/)[0] ?? '';
+  }
+
+  function currentSvgSize(): { width: number; height: number } {
+    const svg = canvasEl?.querySelector('svg');
+    return svg ? svgSize(svg) : { width: 0, height: 0 };
+  }
+
   // ── Pan & Zoom ──────────────────────────────────────────────
 
-  function handleWheel(e: WheelEvent) {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.92 : 1.08;
-    const newZoom = Math.min(Math.max(zoom * factor, 0.1), 5);
-
-    // Zoom toward cursor position
-    const rect = container.getBoundingClientRect();
-    const cx = e.clientX - rect.left;
-    const cy = e.clientY - rect.top;
+  function setZoomAt(newZoom: number, cx: number, cy: number) {
+    newZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
     panX = cx - (cx - panX) * (newZoom / zoom);
     panY = cy - (cy - panY) * (newZoom / zoom);
     zoom = newZoom;
+    autoFit = false;
+  }
+
+  function handleWheel(e: WheelEvent) {
+    e.preventDefault();
+    // Proportional to the scroll distance: smooth for trackpads/pinch
+    // (ctrlKey), about 12% per notch for mouse wheels
+    const pixels = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+    const factor = Math.exp(-pixels * (e.ctrlKey ? 0.01 : 0.0012));
+
+    // Zoom toward cursor position
+    const rect = container.getBoundingClientRect();
+    setZoomAt(zoom * factor, e.clientX - rect.left, e.clientY - rect.top);
   }
 
   function handleMouseDown(e: MouseEvent) {
@@ -141,7 +185,10 @@
 
   function handleMouseMove(e: MouseEvent) {
     if (!isPanning) return;
-    if (Math.abs(e.clientX - dragStartX) + Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
+    if (Math.abs(e.clientX - dragStartX) + Math.abs(e.clientY - dragStartY) > 3) {
+      didDrag = true;
+      autoFit = false;
+    }
     panX = dragStartPanX + (e.clientX - dragStartX);
     panY = dragStartPanY + (e.clientY - dragStartY);
   }
@@ -154,29 +201,18 @@
 
   function fitToView() {
     if (!container || !canvasEl) return;
-    const svg = canvasEl.querySelector('svg');
-    if (!svg) return;
+    const { width: svgW, height: svgH } = currentSvgSize();
+    if (!svgW || !svgH) return;
 
     const containerRect = container.getBoundingClientRect();
-
-    // Get SVG natural dimensions
-    const vb = (svg as SVGSVGElement).viewBox?.baseVal;
-    let svgW: number, svgH: number;
-    if (vb && vb.width > 0 && vb.height > 0) {
-      svgW = vb.width;
-      svgH = vb.height;
-    } else {
-      svgW = parseFloat(svg.getAttribute('width') || '0') || 800;
-      svgH = parseFloat(svg.getAttribute('height') || '0') || 600;
-    }
-
     const padding = 48;
-    const availW = containerRect.width - padding * 2;
-    const availH = containerRect.height - padding * 2;
+    const availW = Math.max(containerRect.width - padding * 2, 50);
+    const availH = Math.max(containerRect.height - padding * 2, 50);
 
-    zoom = Math.min(availW / svgW, availH / svgH, 2);
+    zoom = Math.min(availW / svgW, availH / svgH, MAX_FIT_ZOOM);
     panX = (containerRect.width - svgW * zoom) / 2;
     panY = (containerRect.height - svgH * zoom) / 2;
+    autoFit = true;
   }
 
   function zoomIn() {
@@ -189,12 +225,13 @@
 
   function zoomBy(factor: number) {
     const rect = container.getBoundingClientRect();
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
-    const newZoom = Math.min(Math.max(zoom * factor, 0.1), 5);
-    panX = cx - (cx - panX) * (newZoom / zoom);
-    panY = cy - (cy - panY) * (newZoom / zoom);
-    zoom = newZoom;
+    setZoomAt(zoom * factor, rect.width / 2, rect.height / 2);
+  }
+
+  /** 100% = the diagram's natural size, centered on the view center */
+  function actualSize() {
+    const rect = container.getBoundingClientRect();
+    setZoomAt(1, rect.width / 2, rect.height / 2);
   }
 
   // ── Click to highlight source ───────────────────────────────
@@ -203,10 +240,14 @@
     canvasEl?.querySelectorAll('.dh-selected').forEach((el) => el.classList.remove('dh-selected'));
   }
 
-  /** Group/subgraph backgrounds are unfilled, so clicks inside them hit nothing: use geometry */
+  /**
+   * Group backgrounds and stroke-only icons are unfilled, so clicks inside them
+   * hit the SVG background: use geometry, preferring the smallest element
+   * (a service/node) over the group around it.
+   */
   function locateEnclosingGroup(svgRoot: Element, x: number, y: number) {
     let best: { el: Element; area: number } | null = null;
-    for (const el of svgRoot.querySelectorAll('[id^="group-"], g.cluster')) {
+    for (const el of svgRoot.querySelectorAll('.architecture-service, g.node, [id^="group-"], g.cluster')) {
       const r = el.getBoundingClientRect();
       const area = r.width * r.height;
       if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && (!best || area < best.area)) {
@@ -248,9 +289,13 @@
   // ── Inline text editing ─────────────────────────────────────
 
   function handleDblClick(e: MouseEvent) {
+    const target = e.target as Element;
+    if (target === container || target === canvasEl?.querySelector('svg')) {
+      fitToView();
+      return;
+    }
     if (!oneditlabel) return;
 
-    const target = e.target as Element;
     const textEl = target.closest('text') || (target.tagName.toLowerCase() === 'tspan' ? target.parentElement?.closest('text') : null);
     if (!textEl) return;
 
@@ -333,7 +378,7 @@
     <div
       class="canvas"
       bind:this={canvasEl}
-      style="transform: translate({panX}px, {panY}px) scale({zoom})"
+      style="transform: translate({panX}px, {panY}px) scale({zoom}); background: {canvasBackground};"
     >
       {@html svgContent}
     </div>
@@ -373,12 +418,17 @@
           <path d="M3.5 8a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5z"/>
         </svg>
       </button>
-      <button class="zoom-btn zoom-level" onclick={fitToView} title="Fit to view">
+      <button class="zoom-btn zoom-level" onclick={actualSize} title="Actual size (100%)">
         {zoomPercent}%
       </button>
       <button class="zoom-btn" onclick={zoomIn} title="Zoom in">
         <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
           <path d="M8 3.5a.5.5 0 0 1 .5.5v3.5H12a.5.5 0 0 1 0 1H8.5V12a.5.5 0 0 1-1 0V8.5H4a.5.5 0 0 1 0-1h3.5V4a.5.5 0 0 1 .5-.5z"/>
+        </svg>
+      </button>
+      <button class="zoom-btn" onclick={fitToView} title="Fit to view (or double-click the background)">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" width="14" height="14">
+          <path d="M2 5.5V3a1 1 0 0 1 1-1h2.5M10.5 2H13a1 1 0 0 1 1 1v2.5M14 10.5V13a1 1 0 0 1-1 1h-2.5M5.5 14H3a1 1 0 0 1-1-1v-2.5"/>
         </svg>
       </button>
     </div>
@@ -402,6 +452,7 @@
   }
 
   .canvas {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
     transform-origin: 0 0;
     position: absolute;
     top: 0;

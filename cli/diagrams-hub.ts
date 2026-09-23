@@ -47,6 +47,8 @@ OPTIONS
                        diagrams are upscaled at most ${MAX_SCALE}x
       --svg PATH       Also write the rendered SVG to PATH
   -c, --code TEXT      Use TEXT as the diagram source instead of FILE/stdin
+  -t, --theme FILE     Colors/fonts as JSON, e.g. from the app's Style panel ("Copy JSON");
+                       partial themes are fine: {"colors": {"clusterBkg": "#eef"}}
       --json           Machine-readable output on stdout (see OUTPUT)
 
 EXIT CODES
@@ -104,6 +106,7 @@ interface Options {
   code?: string;
   out?: string;
   svg?: string;
+  theme?: string;
   maxSize: number;
   json: boolean;
   filter?: string;
@@ -127,6 +130,7 @@ function parseArgs(argv: string[]): Options {
       case '-o': case '--out': opts.out = value(); break;
       case '--svg': opts.svg = value(); break;
       case '-c': case '--code': opts.code = value(); break;
+      case '-t': case '--theme': opts.theme = value(); break;
       case '--json': opts.json = true; break;
       case '-m': case '--max-size': {
         const n = Number(value());
@@ -270,6 +274,18 @@ interface Output {
   warnings: Diagnostic[];
 }
 
+function loadTheme(path?: string): object | undefined {
+  if (!path) return undefined;
+  if (!existsSync(path)) throw new UsageError(`Theme file not found: ${path}`);
+  try {
+    const theme = JSON.parse(readFileSync(path, 'utf8'));
+    if (typeof theme !== 'object' || theme === null) throw new Error('not an object');
+    return theme;
+  } catch (err) {
+    throw new UsageError(`Invalid theme JSON in ${path}: ${(err as Error).message}`);
+  }
+}
+
 function defaultImagePath(opts: Options, code: string): string {
   if (opts.input && opts.input !== '-') {
     return opts.input.replace(/\.[^./\\]+$/, '') + '.png';
@@ -292,7 +308,11 @@ async function renderCode(code: string, opts: Options): Promise<Output> {
       throw new EnvError(`Headless renderer failed to load: ${pageErrors.join('; ') || 'timeout'}`);
     });
 
-    const result: RenderResult = await page.evaluate((c) => window.diagramsHub.render(c), code);
+    const theme = loadTheme(opts.theme);
+    const result: RenderResult = await page.evaluate(
+      ([c, t]) => window.diagramsHub.render(c as string, t as object | undefined),
+      [code, theme] as const,
+    );
     const output: Output = {
       ok: !result.error,
       mode: result.mode,

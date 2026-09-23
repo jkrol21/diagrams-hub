@@ -8,7 +8,8 @@ import { initializeMermaid, registerArchitectureIcons, renderDiagram, generateMe
 import { renderExcalidraw } from './lib/utils/excalidrawRender';
 import { detectDiagramMode, type DiagramMode } from './lib/utils/diagramMode';
 import { locateError, findUnknownIcons, withHint, type Diagnostic } from './lib/utils/diagnostics';
-import { DEFAULT_THEME } from './lib/stores/theme';
+import { DEFAULT_THEME, normalizeTheme } from './lib/stores/theme';
+import type { ThemeConfig } from './lib/types';
 import { hubIcons } from './lib/icons/hub';
 import { buildLogoIconPack } from './lib/icons/logos';
 
@@ -42,10 +43,13 @@ const ready = (async () => {
   await registerArchitectureIcons();
 })();
 
-async function render(code: string): Promise<RenderResult> {
+async function render(code: string, theme?: Partial<ThemeConfig>): Promise<RenderResult> {
   await ready;
+  const resolved = normalizeTheme(theme);
+  initializeMermaid(resolved);
   const out = document.getElementById('out')!;
   out.innerHTML = '';
+  out.style.background = resolved.colors.background;
 
   const trimmed = code.trim();
   const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');

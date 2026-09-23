@@ -5,9 +5,11 @@
   import SplitPane from './lib/components/SplitPane.svelte';
   import ErrorDisplay from './lib/components/ErrorDisplay.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
+  import ThemePanel from './lib/components/ThemePanel.svelte';
 
   import { diagramStore, code, documentName } from './lib/stores/diagram';
   import { uiStore } from './lib/stores/ui';
+  import { themeStore } from './lib/stores/theme';
   import { openFile, saveDiagram, saveAs } from './lib/utils/fileSystem';
   import { exportToPng } from './lib/utils/exportPng';
   import { detectDiagramMode } from './lib/utils/diagramMode';
@@ -21,6 +23,8 @@
   let saveStatus = $state<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
   let lastRenderedSvg = $state<string | null>(null);
   let highlight = $state<SourceRange | null>(null);
+  let styleOpen = $state(false);
+  let exporting = $state(false);
 
   // Subscribe to stores
   $effect(() => {
@@ -146,10 +150,30 @@
     }
   }
 
-  function handleExport() {
-    if (lastRenderedSvg) {
-      exportToPng(lastRenderedSvg, currentName, 2);
+  async function handleExport() {
+    if (!lastRenderedSvg || exporting) return;
+    exporting = true;
+    try {
+      await exportToPng(lastRenderedSvg, currentName, 2, themeStore.getTheme().colors.background);
+    } catch (err) {
+      console.error('PNG export failed:', err);
+      alert(`PNG export failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      exporting = false;
     }
+  }
+
+  function handleExample(name: string, exampleCode: string) {
+    if (saveStatus === 'unsaved' && !confirm('You have unsaved changes. Load the example anyway?')) {
+      return;
+    }
+    diagramStore.loadDiagram({
+      id: crypto.randomUUID(),
+      name,
+      code: exampleCode,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
   }
 
   // Calculate line count
@@ -164,10 +188,13 @@
     onsave={handleSave}
     onsaveas={handleSaveAs}
     onexport={handleExport}
-    exportDisabled={!lastRenderedSvg}
+    exportDisabled={!lastRenderedSvg || exporting}
+    onexample={handleExample}
+    onstyle={() => (styleOpen = !styleOpen)}
+    {styleOpen}
   />
 
-  <main class="main-content">
+  <main class="main-content" class:with-panel={styleOpen}>
     <SplitPane
       position={splitPosition}
       onpositionchange={handleSplitChange}
@@ -189,6 +216,10 @@
         />
       {/snippet}
     </SplitPane>
+
+    {#if styleOpen}
+      <ThemePanel onclose={() => (styleOpen = false)} />
+    {/if}
   </main>
 
   <StatusBar
@@ -212,6 +243,12 @@
   .main-content {
     flex: 1;
     overflow: hidden;
+    position: relative;
+  }
+
+  /* Keep the preview fully visible next to the style panel (300px) */
+  .main-content.with-panel {
+    padding-right: 300px;
   }
 
   .editor-panel {

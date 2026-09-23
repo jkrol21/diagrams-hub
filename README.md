@@ -95,7 +95,7 @@ architecture-beta
     gateway:R --> L:fw
     fw:R --> L:app
     app:R --> L:cache
-    app:B --> T:db
+    app:B --> T:worker
     worker:B --> T:db
     worker:R --> L:storage
 ```
@@ -105,6 +105,24 @@ architecture-beta
 Click any element in the preview (service, group, edge, label, or an Excalidraw shape) and the editor
 jumps to its definition: the line is highlighted, the id is selected and the cursor is ready for typing.
 Dragging still pans the canvas; double-clicking a label still edits it inline.
+
+## Style Panel
+
+**Style** in the toolbar opens a panel for the rendering look: presets (Light, Neutral, Dark), colors for
+nodes, groups (subgraphs, class diagram namespaces, architecture groups), edges, notes and the
+background, plus font family and size. Changes apply live and are used for the PNG export.
+"Copy JSON" copies the theme for the CLI's `--theme` option.
+
+## Examples
+
+**Examples** in the toolbar loads a sample for each supported diagram type (from `examples/`).
+`bun run examples` renders all of them with the CLI as a smoke test.
+
+## Navigating the Preview
+
+Scroll or pinch to zoom toward the cursor (5%–1000%), drag to pan. The preview keeps the diagram fitted
+until you zoom or pan yourself; double-click the background or use the fit button to fit again, and the
+% button for 100%.
 
 ## CLI for Agents
 
@@ -119,6 +137,7 @@ diagrams-hub render diagram.mmd              # -> diagram.png, max 1200px on the
 diagrams-hub render - -o /tmp/arch.png < diagram.mmd
 diagrams-hub check diagram.mmd --json        # validate only
 diagrams-hub icons server                    # find icon names
+diagrams-hub render diagram.mmd -t theme.json   # use colors/fonts from the Style panel
 diagrams-hub help                            # full usage + architecture-beta cheat sheet
 ```
 
@@ -145,6 +164,7 @@ bun run build        # Production build
 bun run preview      # Preview production build
 bun run check        # Type-check
 bun test             # Unit tests
+bun run examples     # Render all examples (smoke test)
 bun run diagram help # Agent CLI
 ```
 

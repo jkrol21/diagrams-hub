@@ -1,30 +1,12 @@
 import { writable, derived, get } from 'svelte/store';
 import type { DiagramDocument, SaveStatus } from '../types';
 import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage';
+import defaultCode from '../../../examples/architecture.mmd?raw';
 
 const STORAGE_KEY = 'mermaid-editor:active';
 
-const DEFAULT_CODE = `architecture-beta
-    group api(hub:network)[API Layer]
-    group backend(hub:vps)[Backend Services]
-    group data(lucide:database)[Data Layer]
-
-    service gateway(lucide:globe)[API Gateway] in api
-    service fw(hub:firewall)[Firewall] in api
-
-    service app(hub:service)[App Service] in backend
-    service worker(lucide:zap)[Worker] in backend
-    service cache(lucide:hard-drive)[Cache] in backend
-
-    service db(lucide:database)[Database] in data
-    service storage(hub:bucket)[Object Store] in data
-
-    gateway:R --> L:fw
-    fw:R --> L:app
-    app:R --> L:cache
-    app:B --> T:db
-    worker:B --> T:db
-    worker:R --> L:storage`;
+// Default template: the architecture example (examples/architecture.mmd)
+const DEFAULT_CODE = defaultCode.trimEnd();
 
 function createDiagramStore() {
   const stored = loadFromLocalStorage<DiagramDocument>(STORAGE_KEY);

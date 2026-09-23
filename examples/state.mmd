@@ -1,0 +1,12 @@
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Submitted : submit()
+    Submitted --> Paid : payment ok
+    Submitted --> Cancelled : timeout
+    Paid --> Shipped
+    state Shipped {
+        [*] --> InTransit
+        InTransit --> Delivered
+    }
+    Shipped --> [*]
+    Cancelled --> [*]

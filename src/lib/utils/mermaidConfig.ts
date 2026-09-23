@@ -22,8 +22,11 @@ export async function registerArchitectureIcons(): Promise<void> {
   mermaid.registerIconPacks(packs);
 }
 
+let activeTheme: ThemeConfig | null = null;
+
 /** Initialize Mermaid with a theme configuration */
 export function initializeMermaid(theme: ThemeConfig): void {
+  activeTheme = theme;
   mermaid.initialize({
     startOnLoad: false,
     theme: 'base',
@@ -40,23 +43,48 @@ export function initializeMermaid(theme: ThemeConfig): void {
 
 /** Map our theme config to Mermaid's theme variables */
 export function mapThemeToMermaid(theme: ThemeConfig): Record<string, string | number> {
+  const c = theme.colors;
   return {
-    primaryColor: theme.colors.primaryColor,
-    primaryTextColor: theme.colors.primaryTextColor,
-    primaryBorderColor: theme.colors.primaryBorderColor,
-    lineColor: theme.colors.lineColor,
-    secondaryColor: theme.colors.secondaryColor,
-    tertiaryColor: theme.colors.tertiaryColor,
-    background: theme.colors.background,
-    mainBkg: theme.colors.mainBkg,
-    textColor: theme.colors.textColor,
-    nodeTextColor: theme.colors.nodeTextColor,
+    primaryColor: c.primaryColor,
+    primaryTextColor: c.primaryTextColor,
+    primaryBorderColor: c.primaryBorderColor,
+    nodeBorder: c.primaryBorderColor,
+    lineColor: c.lineColor,
+    secondaryColor: c.secondaryColor,
+    tertiaryColor: c.tertiaryColor,
+    background: c.background,
+    mainBkg: c.mainBkg,
+    textColor: c.textColor,
+    nodeTextColor: c.nodeTextColor,
+    // Without these, 'base' derives clusters from tertiaryColor (green) and
+    // edge labels from secondaryColor (orange)
+    clusterBkg: c.clusterBkg,
+    clusterBorder: c.clusterBorder,
+    titleColor: c.titleColor,
+    edgeLabelBackground: c.edgeLabelBackground,
+    noteBkgColor: c.noteBkgColor,
+    noteBorderColor: c.noteBorderColor,
+    noteTextColor: c.textColor,
     fontFamily: theme.fonts.fontFamily,
     fontSize: `${theme.fonts.fontSize}px`,
-    archEdgeColor: '#4C78A8',
-    archEdgeArrowColor: '#4C78A8',
-    archGroupBorderColor: '#dee2e6'
+    archEdgeColor: c.archEdgeColor,
+    archEdgeArrowColor: c.archEdgeColor,
+    archGroupBorderColor: c.clusterBorder
   };
+}
+
+/**
+ * Class diagram namespaces are drawn with a hard-coded inline
+ * `fill:none !important;stroke:black !important`, which no theme variable
+ * reaches; swap in the theme's group colors.
+ */
+export function applyGroupColors(svg: string): string {
+  if (!activeTheme) return svg;
+  const { clusterBkg, clusterBorder } = activeTheme.colors;
+  return svg.replaceAll(
+    'style="fill:none !important;stroke:black !important"',
+    `style="fill:${clusterBkg} !important;stroke:${clusterBorder} !important"`
+  );
 }
 
 /** Render Mermaid diagram and return SVG string */
@@ -73,7 +101,7 @@ export async function renderDiagram(
 
     // Render the diagram
     const { svg } = await mermaid.render(elementId, code);
-    return { svg, error: null };
+    return { svg: applyGroupColors(svg), error: null };
   } catch (error) {
     const diagnostic = diagnosticFromError(error, code);
     const where = diagnostic.line

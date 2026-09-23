@@ -1,0 +1,37 @@
+classDiagram
+    namespace Domain {
+        class Order {
+            +UUID id
+            +List~OrderLine~ lines
+            +Status status
+            +total() Money
+            +submit()
+        }
+        class OrderLine {
+            +String sku
+            +int quantity
+            +Money price
+        }
+        class Customer {
+            +UUID id
+            +String name
+            +String email
+        }
+    }
+    namespace Infrastructure {
+        class OrderRepository {
+            <<interface>>
+            +find(UUID id) Order
+            +save(Order order)
+        }
+        class PostgresOrderRepository
+        class PaymentGateway {
+            <<interface>>
+            +charge(Money amount) Receipt
+        }
+    }
+    Customer "1" --> "*" Order : places
+    Order "1" *-- "1..*" OrderLine : contains
+    OrderRepository <|.. PostgresOrderRepository
+    OrderRepository ..> Order
+    Order ..> PaymentGateway : pays via

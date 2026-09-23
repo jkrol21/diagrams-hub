@@ -1,0 +1,12 @@
+gantt
+    title Release Plan
+    dateFormat YYYY-MM-DD
+    section Backend
+        API design      :done,    a1, 2026-09-01, 7d
+        Implementation  :active,  a2, after a1, 14d
+    section Frontend
+        Mockups         :done,    b1, 2026-09-03, 5d
+        UI build        :         b2, after b1, 12d
+    section Release
+        QA              :         c1, after a2, 5d
+        Go live         :milestone, after c1, 0d

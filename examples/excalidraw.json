@@ -1,0 +1,10 @@
+{
+  "type": "excalidraw",
+  "elements": [
+    { "id": "box1", "type": "rectangle", "x": 0, "y": 0, "width": 220, "height": 90, "backgroundColor": "#a5d8ff", "fillStyle": "solid", "roundness": { "type": 3 } },
+    { "id": "txt1", "type": "text", "x": 20, "y": 30, "width": 180, "height": 30, "text": "Client", "fontSize": 28, "textAlign": "center" },
+    { "id": "arr1", "type": "arrow", "x": 220, "y": 45, "width": 180, "height": 0, "points": [[0, 0], [180, 0]] },
+    { "id": "box2", "type": "ellipse", "x": 400, "y": -5, "width": 200, "height": 100, "backgroundColor": "#ffc9c9", "fillStyle": "hachure" },
+    { "id": "txt2", "type": "text", "x": 420, "y": 30, "width": 160, "height": 30, "text": "Server", "fontSize": 28, "textAlign": "center" }
+  ]
+}

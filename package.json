@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "diagram": "bun cli/diagrams-hub.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "examples": "bun scripts/render-examples.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.4",

@@ -1,0 +1,10 @@
+flowchart LR
+    user([User]) --> web[Web App]
+    subgraph backend [Backend]
+        api[REST API] --> auth{Authenticated?}
+        auth -- yes --> svc[Order Service]
+        auth -- no --> err[401 Error]
+    end
+    web --> api
+    svc --> db[(Orders DB)]
+    svc -.-> queue>Event Queue]

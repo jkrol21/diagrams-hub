@@ -23,6 +23,16 @@ export interface ThemeConfig {
     mainBkg: string;
     textColor: string;
     nodeTextColor: string;
+    /** Groups, subgraphs, namespaces, composite states */
+    clusterBkg: string;
+    clusterBorder: string;
+    /** Group/subgraph titles */
+    titleColor: string;
+    edgeLabelBackground: string;
+    noteBkgColor: string;
+    noteBorderColor: string;
+    /** Edges in architecture-beta diagrams */
+    archEdgeColor: string;
   };
   fonts: {
     fontFamily: string;
