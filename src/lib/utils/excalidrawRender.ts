@@ -369,7 +369,11 @@ export async function renderExcalidraw(
 
     const rc = rough.svg(svgEl);
 
+    // Tag each element's nodes with its index in the source `elements` array,
+    // so clicks in the preview can be mapped back to the JSON (see sourceMap.ts)
+    const allElements = data.elements ?? [];
     for (const el of elements) {
+      const firstNew = svgEl.childNodes.length;
       switch (el.type) {
         case 'rectangle': renderRectangle(rc, svgEl, el, ox, oy); break;
         case 'ellipse':   renderEllipse(rc, svgEl, el, ox, oy);   break;
@@ -378,6 +382,10 @@ export async function renderExcalidraw(
         case 'arrow':     renderLinear(rc, svgEl, el, ox, oy);    break;
         case 'text':      renderText(svgEl, el, ox, oy);          break;
         // freedraw / image / frame: silently skip for now
+      }
+      const index = String(allElements.indexOf(el));
+      for (let i = firstNew; i < svgEl.childNodes.length; i++) {
+        (svgEl.childNodes[i] as Element).setAttribute('data-el-index', index);
       }
     }
 

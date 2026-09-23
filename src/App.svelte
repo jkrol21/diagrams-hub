@@ -12,6 +12,7 @@
   import { exportToPng } from './lib/utils/exportPng';
   import { detectDiagramMode } from './lib/utils/diagramMode';
   import type { DiagramDocument } from './lib/types';
+  import type { SourceRange } from './lib/utils/sourceMap';
 
   let error = $state<string | null>(null);
   let splitPosition = $state(50);
@@ -19,6 +20,7 @@
   let currentName = $state('Untitled');
   let saveStatus = $state<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
   let lastRenderedSvg = $state<string | null>(null);
+  let highlight = $state<SourceRange | null>(null);
 
   // Subscribe to stores
   $effect(() => {
@@ -63,6 +65,10 @@
     if (newCode !== doc.code) {
       diagramStore.updateCode(newCode);
     }
+  }
+
+  function handleSelect(range: SourceRange | null) {
+    highlight = range;
   }
 
   function handleSplitChange(position: number) {
@@ -168,7 +174,7 @@
     >
       {#snippet left()}
         <div class="editor-panel">
-          <Editor value={currentCode} onchange={handleCodeChange} />
+          <Editor value={currentCode} onchange={handleCodeChange} {highlight} />
           <ErrorDisplay {error} code={currentCode} />
         </div>
       {/snippet}
@@ -179,6 +185,7 @@
           onerror={handleError}
           onrender={handleRender}
           oneditlabel={handleEditLabel}
+          onselect={handleSelect}
         />
       {/snippet}
     </SplitPane>

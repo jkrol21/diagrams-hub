@@ -100,6 +100,42 @@ architecture-beta
     worker:R --> L:storage
 ```
 
+## Click to Edit
+
+Click any element in the preview (service, group, edge, label, or an Excalidraw shape) and the editor
+jumps to its definition: the line is highlighted, the id is selected and the cursor is ready for typing.
+Dragging still pans the canvas; double-clicking a label still edits it inline.
+
+## CLI for Agents
+
+`cli/diagrams-hub.ts` renders and validates diagrams headlessly with exactly the same renderer and icon
+packs as the app — made for AI agents that write diagram code and need feedback.
+
+```bash
+bunx playwright install chromium   # once (or have Google Chrome installed)
+bun link                           # optional: makes `diagrams-hub` available everywhere
+
+diagrams-hub render diagram.mmd              # -> diagram.png, max 1200px on the longest side
+diagrams-hub render - -o /tmp/arch.png < diagram.mmd
+diagrams-hub check diagram.mmd --json        # validate only
+diagrams-hub icons server                    # find icon names
+diagrams-hub help                            # full usage + architecture-beta cheat sheet
+```
+
+Without `bun link`, use `bun run diagram ...` inside the repo or `bun /path/to/diagrams-hub/cli/diagrams-hub.ts ...`.
+
+Syntax errors come with line, column, a source excerpt and — for architecture-beta — a hint:
+
+```
+ERROR (mermaid) line 2, column 12: Expecting token of type ':' but found `a`.
+Hint: "servce" is not a keyword. Lines must start with service, group or junction, or be an edge like "a:R --> L:b".
+  1 | architecture-beta
+> 2 |     servce a(lucide:globe)[A]
+    |            ^
+```
+
+Unknown icon names (which Mermaid silently draws as a "?") are reported as warnings.
+
 ## Commands
 
 ```bash
@@ -108,6 +144,8 @@ bun run dev          # Dev server at localhost:5173
 bun run build        # Production build
 bun run preview      # Preview production build
 bun run check        # Type-check
+bun test             # Unit tests
+bun run diagram help # Agent CLI
 ```
 
 ## Adding New Hub Icons

@@ -2,6 +2,7 @@ import mermaid from 'mermaid';
 import type { ThemeConfig } from '../types';
 import { hubIcons } from '../icons/hub';
 import { buildLogoIconPack } from '../icons/logos';
+import { diagnosticFromError, type Diagnostic } from './diagnostics';
 
 /** Register all icon packs for architecture diagrams (Lucide + Hub + Logos) */
 export async function registerArchitectureIcons(): Promise<void> {
@@ -62,7 +63,7 @@ export function mapThemeToMermaid(theme: ThemeConfig): Record<string, string | n
 export async function renderDiagram(
   code: string,
   elementId: string
-): Promise<{ svg: string; error: string | null }> {
+): Promise<{ svg: string; error: string | null; diagnostic?: Diagnostic }> {
   try {
     // Validate syntax first
     const isValid = await mermaid.parse(code);
@@ -74,15 +75,11 @@ export async function renderDiagram(
     const { svg } = await mermaid.render(elementId, code);
     return { svg, error: null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    // Keep meaningful lines from the error, strip stack traces
-    const cleanMessage = message
-      .split('\n')
-      .filter(line => !line.match(/^\s+at\s/) && line.trim().length > 0)
-      .map(line => line.replace(/^Error:\s*/, '').trim())
-      .filter(Boolean)
-      .join('\n');
-    return { svg: '', error: cleanMessage || 'Unknown syntax error' };
+    const diagnostic = diagnosticFromError(error, code);
+    const where = diagnostic.line
+      ? `Line ${diagnostic.line}${diagnostic.column ? `, column ${diagnostic.column}` : ''}: `
+      : '';
+    return { svg: '', error: where + diagnostic.message, diagnostic };
   }
 }
 

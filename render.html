@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Diagrams Hub - Headless Renderer</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #ffffff; }
+      #out { display: inline-block; background: #ffffff; }
+      #out > svg { display: block; max-width: none !important; }
+    </style>
+  </head>
+  <body>
+    <!-- Used by the CLI (cli/diagrams-hub.ts) via headless Chromium; not part of the app UI -->
+    <div id="out"></div>
+    <script type="module" src="/src/render.ts"></script>
+  </body>
+</html>

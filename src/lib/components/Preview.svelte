@@ -4,15 +4,18 @@
   import { renderExcalidraw } from '../utils/excalidrawRender';
   import { detectDiagramMode } from '../utils/diagramMode';
   import { themeStore } from '../stores/theme';
+  import { locateMermaidElement, locateExcalidrawElement, type SourceRange } from '../utils/sourceMap';
 
   interface Props {
     code: string;
     onerror: (error: string | null) => void;
     onrender?: (svg: string) => void;
     oneditlabel?: (oldLabel: string, newLabel: string) => void;
+    /** Called with the source range of a clicked element (null = nothing found) */
+    onselect?: (range: SourceRange | null) => void;
   }
 
-  let { code, onerror, onrender, oneditlabel }: Props = $props();
+  let { code, onerror, onrender, oneditlabel, onselect }: Props = $props();
 
   let svgContent = $state('');
   let isLoading = $state(true);
@@ -31,6 +34,7 @@
   let dragStartY = 0;
   let dragStartPanX = 0;
   let dragStartPanY = 0;
+  let didDrag = false;
   let hasFitted = false;
 
   // Inline text editing state
@@ -126,6 +130,7 @@
     if ((e.target as HTMLElement).closest('.edit-overlay')) return;
 
     isPanning = true;
+    didDrag = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     dragStartPanX = panX;
@@ -136,6 +141,7 @@
 
   function handleMouseMove(e: MouseEvent) {
     if (!isPanning) return;
+    if (Math.abs(e.clientX - dragStartX) + Math.abs(e.clientY - dragStartY) > 3) didDrag = true;
     panX = dragStartPanX + (e.clientX - dragStartX);
     panY = dragStartPanY + (e.clientY - dragStartY);
   }
@@ -189,6 +195,54 @@
     panX = cx - (cx - panX) * (newZoom / zoom);
     panY = cy - (cy - panY) * (newZoom / zoom);
     zoom = newZoom;
+  }
+
+  // ── Click to highlight source ───────────────────────────────
+
+  function clearSelectionMark() {
+    canvasEl?.querySelectorAll('.dh-selected').forEach((el) => el.classList.remove('dh-selected'));
+  }
+
+  /** Group/subgraph backgrounds are unfilled, so clicks inside them hit nothing: use geometry */
+  function locateEnclosingGroup(svgRoot: Element, x: number, y: number) {
+    let best: { el: Element; area: number } | null = null;
+    for (const el of svgRoot.querySelectorAll('[id^="group-"], g.cluster')) {
+      const r = el.getBoundingClientRect();
+      const area = r.width * r.height;
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom && (!best || area < best.area)) {
+        best = { el, area };
+      }
+    }
+    return best ? locateMermaidElement(code, best.el, svgRoot) : null;
+  }
+
+  function handleClick(e: MouseEvent) {
+    if (!onselect || didDrag) return;
+    if ((e.target as HTMLElement).closest('.edit-overlay, .zoom-controls')) return;
+
+    clearSelectionMark();
+    const svgRoot = canvasEl?.querySelector('svg');
+    const target = e.target as Element;
+    if (!svgRoot || !svgRoot.contains(target)) {
+      onselect(null);
+      return;
+    }
+
+    let range: SourceRange | null = null;
+    let element: Element | null = null;
+
+    if (detectDiagramMode(code) === 'excalidraw') {
+      element = target.closest('[data-el-index]');
+      const index = Number(element?.getAttribute('data-el-index'));
+      if (element && !Number.isNaN(index)) range = locateExcalidrawElement(code, index);
+    } else {
+      const hit = locateMermaidElement(code, target, svgRoot)
+        ?? locateEnclosingGroup(svgRoot, e.clientX, e.clientY);
+      if (hit) ({ range, element } = hit);
+    }
+
+    if (range && element) element.classList.add('dh-selected');
+    onselect(range);
   }
 
   // ── Inline text editing ─────────────────────────────────────
@@ -256,13 +310,14 @@
   const zoomPercent = $derived(Math.round(zoom * 100));
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
 <div
   class="preview-container"
   class:panning={isPanning}
   bind:this={container}
   onwheel={handleWheel}
   onmousedown={handleMouseDown}
+  onclick={handleClick}
   ondblclick={handleDblClick}
   style="
     background-position: {panX}px {panY}px;
@@ -356,6 +411,10 @@
   .canvas :global(svg) {
     max-width: none !important;
     display: block;
+  }
+
+  .canvas :global(.dh-selected) {
+    filter: drop-shadow(0 0 3px #f59f00) drop-shadow(0 0 1px #f59f00);
   }
 
   .canvas :global(svg text) {

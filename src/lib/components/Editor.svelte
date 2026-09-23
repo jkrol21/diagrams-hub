@@ -1,17 +1,20 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { EditorState } from '@codemirror/state';
-  import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
+  import { EditorState, StateEffect, StateField } from '@codemirror/state';
+  import { EditorView, Decoration, type DecorationSet, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language';
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+  import type { SourceRange } from '../utils/sourceMap';
 
   interface Props {
     value: string;
     onchange: (value: string) => void;
+    /** Source range of the element selected in the preview (new object = new highlight) */
+    highlight?: SourceRange | null;
   }
 
-  let { value, onchange }: Props = $props();
+  let { value, onchange, highlight = null }: Props = $props();
 
   let container: HTMLDivElement;
   let view: EditorView;
@@ -42,8 +45,67 @@
     },
     '.cm-line': {
       padding: '0 12px'
+    },
+    '.cm-line.cm-diagram-highlight': {
+      backgroundColor: '#fff3bf',
+      boxShadow: 'inset 3px 0 0 #f59f00'
+    },
+    '.cm-diagram-highlight-token': {
+      backgroundColor: '#ffd43b',
+      borderRadius: '2px'
     }
   });
+
+  // ── Diagram selection highlight ──────────────────────────────
+  // Line background for the definition block plus a mark on the exact token.
+  // Decorations map through edits, so the highlight stays while typing there.
+
+  const setHighlight = StateEffect.define<SourceRange | null>();
+
+  const highlightLine = Decoration.line({ class: 'cm-diagram-highlight' });
+  const highlightMark = Decoration.mark({ class: 'cm-diagram-highlight-token' });
+
+  const highlightField = StateField.define<DecorationSet>({
+    create: () => Decoration.none,
+    update(deco, tr) {
+      deco = deco.map(tr.changes);
+      for (const effect of tr.effects) {
+        if (!effect.is(setHighlight)) continue;
+        const range = effect.value;
+        if (!range) {
+          deco = Decoration.none;
+          continue;
+        }
+        const doc = tr.state.doc;
+        const decos = [];
+        const first = doc.lineAt(Math.min(range.blockFrom, doc.length)).number;
+        const last = doc.lineAt(Math.min(range.blockTo, doc.length)).number;
+        for (let n = first; n <= last; n++) decos.push(highlightLine.range(doc.line(n).from));
+        if (range.to > range.from && range.to <= doc.length) {
+          decos.push(highlightMark.range(range.from, range.to));
+        }
+        deco = Decoration.set(decos, true);
+      }
+      return deco;
+    },
+    provide: (f) => EditorView.decorations.from(f)
+  });
+
+  function applyHighlight(range: SourceRange | null) {
+    if (!view) return;
+    if (!range || range.to > view.state.doc.length) {
+      view.dispatch({ effects: setHighlight.of(null) });
+      return;
+    }
+    view.dispatch({
+      selection: { anchor: range.from, head: range.to },
+      effects: [
+        setHighlight.of(range),
+        EditorView.scrollIntoView(range.from, { y: 'center' })
+      ]
+    });
+    view.focus();
+  }
 
   onMount(() => {
     const updateListener = EditorView.updateListener.of((update) => {
@@ -68,6 +130,7 @@
           ...searchKeymap
         ]),
         lightTheme,
+        highlightField,
         updateListener,
         EditorView.lineWrapping
       ]
@@ -94,6 +157,10 @@
         }
       });
     }
+  });
+
+  $effect(() => {
+    applyHighlight(highlight);
   });
 </script>
 

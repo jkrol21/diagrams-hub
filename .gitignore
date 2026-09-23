@@ -36,3 +36,6 @@ coverage/
 
 # Bun
 bun.lockb
+
+# CLI renderer build cache
+.cli-cache/
