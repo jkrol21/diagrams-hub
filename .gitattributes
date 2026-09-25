@@ -1,0 +1,2 @@
+# Committed build of the CLI's headless renderer (npm run build:renderer)
+cli/renderer/** -diff linguist-generated

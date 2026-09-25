@@ -11,9 +11,10 @@ npm install && npm run dev      # or: bun install && bun run dev
 ## Let AI Agents See Their Diagrams
 
 `cli/diagrams-hub.mjs` checks diagram code and renders it to a PNG the agent can open and look at —
-same renderer and icons as the app. It needs only Node.js 20+ (or Bun) and sets itself up on the first
-run (installs its dependencies, uses an installed Chrome/Edge/Chromium or downloads a headless Chromium
-once). **Nothing to install beforehand, neither by you nor by the agent.**
+same renderer and icons as the app. It needs only Node.js 20+ (or Bun) and an installed Chrome, Edge or
+Chromium: the renderer ships prebuilt in `cli/renderer/`, so there is **no `npm install`, no build and no
+Playwright** — a fresh `git clone` or `git pull` is immediately usable. On WSL it uses the Windows
+Edge/Chrome, so Linux browser libraries (and root rights to install them) aren't needed.
 
 Paste this into your agents' instructions (fix the path to where you cloned this repo):
 
@@ -31,7 +32,8 @@ To check a Mermaid or Excalidraw diagram and see what it looks like, run:
 - Colors are consistent and modern by default. To change them, add `%% style: soft|solid|outline` and/or
   `%% palette: modern|ocean|sunset|forest|berry|mono` lines to the diagram; groups get the palette's colors in order.
 - `... icons <word>` lists icon names for architecture-beta; `... help` has all options and a syntax cheat sheet.
-- The first run sets itself up (may take a minute). Do not install bun, playwright or browsers yourself.
+- There is nothing to set up. Do not install bun, playwright, npm packages or browsers, and do not try to
+  repair the tool — if it exits with code 2, report its message to the user and stop.
 ````
 
 Optionally `npm link` (or `bun link`) in this repo puts a global `diagrams-hub` command on the PATH.
@@ -184,7 +186,7 @@ node cli/diagrams-hub.mjs render - -o /tmp/a.png < diagram.mmd
 node cli/diagrams-hub.mjs check diagram.mmd --json    # validate only, machine-readable
 node cli/diagrams-hub.mjs icons server                # find icon names
 node cli/diagrams-hub.mjs render x.mmd -t theme.json  # colors/fonts from the Style panel ("Copy JSON")
-node cli/diagrams-hub.mjs setup                       # optional: do the one-time setup right now
+node cli/diagrams-hub.mjs setup                       # optional: check that rendering works, show the browser
 node cli/diagrams-hub.mjs help                        # everything else
 ```
 
@@ -203,9 +205,14 @@ Hint: "servce" is not a keyword. Lines must start with service, group or junctio
 Unknown icon names (which Mermaid silently draws as a "?") are reported as warnings. Exit codes: 0 ok,
 1 diagram error, 2 the tool couldn't run (the message says why).
 
-If no browser can be started (e.g. a bare Linux server without Chromium's system libraries), the CLI
-says so; install Google Chrome, set `DIAGRAMS_HUB_CHROMIUM=/path/to/chrome`, or run
-`npx playwright install-deps chromium` once as root.
+**Which browser renders:** the CLI starts an installed browser headless and tries, in order:
+`DIAGRAMS_HUB_CHROMIUM` (if set, only that one), the browser that worked last time
+(`.cli-cache/browser.json`), Chrome/Chromium/Edge/Brave at the usual places, browsers Playwright downloaded
+earlier (never downloads one itself), and on WSL the Windows Edge/Chrome under `/mnt/c`. A browser that
+doesn't start (e.g. Linux Chromium without its system libraries) is skipped. The page gets its job from a
+small local HTTP server, renders, rasterizes the PNG itself and posts it back — no DevTools connection,
+which is what makes the Windows browser usable from WSL (via WSL's localhost forwarding). If nothing
+works, the CLI exits with code 2 and says what the user can do.
 
 ## Commands
 
@@ -217,7 +224,8 @@ npm run dev          # Dev server at localhost:5173
 npm run build        # Production build
 npm run preview      # Preview production build
 npm run check        # Type-check
-npm run examples     # Render all examples with the CLI (smoke test)
+npm run build:renderer  # Rebuild cli/renderer after changing src/ (commit it with the change)
+npm run examples     # Rebuild the renderer, then render all examples with the CLI (smoke test)
 bun test             # Unit tests (needs Bun)
 ```
 

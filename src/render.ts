@@ -1,7 +1,11 @@
 /**
  * Headless render entry used by the CLI (`cli/diagrams-hub.mjs`).
  * Uses the same Mermaid config, icon packs and Excalidraw renderer as the
- * app and exposes `window.diagramsHub` for the CLI to drive via Chromium.
+ * app. Opened as `render.html?job`, it fetches its job from the CLI's local
+ * server (`GET /job`), renders, rasterizes the PNG itself and posts the
+ * result back (`POST /result`), then closes — so the CLI can use any plain
+ * headless Chrome/Edge, including a Windows browser started from WSL, without
+ * a DevTools connection. `window.diagramsHub` exposes the same functions.
  */
 import '@fontsource/caveat/400.css';
 import { initializeMermaid, registerArchitectureIcons, renderDiagram, generateMermaidId } from './lib/utils/mermaidConfig';
@@ -12,6 +16,7 @@ import { DEFAULT_THEME, normalizeTheme } from './lib/stores/theme';
 import { resolveTheme, parseLookDirectives, PALETTE_NAMES, LOOK_STYLES, type Look } from './lib/utils/looks';
 import { applyLook } from './lib/utils/applyLook';
 import { fontsReady } from './lib/utils/fonts';
+import { svgToPngBlob } from './lib/utils/exportPng';
 import type { ThemeConfig } from './lib/types';
 import { hubIcons } from './lib/icons/hub';
 import { buildLogoIconPack } from './lib/icons/logos';
@@ -151,6 +156,58 @@ async function listIcons(): Promise<string[]> {
   return [...(await iconNames())].sort();
 }
 
+/** What the CLI asks for (`GET /job`) */
+interface Job {
+  command: 'render' | 'check' | 'icons';
+  code?: string;
+  theme?: Partial<ThemeConfig>;
+  look?: Partial<Look>;
+  /** Longest side of the PNG in pixels */
+  maxSize?: number;
+  /** Largest upscaling factor for small diagrams */
+  maxScale?: number;
+  /** Also return the SVG */
+  svg?: boolean;
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function runJob(job: Job): Promise<Record<string, unknown>> {
+  if (job.command === 'icons') return { icons: await listIcons() };
+
+  const result = await render(job.code ?? '', job.theme, job.look);
+  if (result.error || job.command === 'check') return { result };
+
+  const svg = getSvg();
+  const scale = Math.min(job.maxScale ?? 2, (job.maxSize ?? 1200) / Math.max(result.width, result.height));
+  const background = document.getElementById('out')!.style.background || '#ffffff';
+  const png = await blobToBase64(await svgToPngBlob(svg, scale, background));
+  return {
+    result: { ...result, width: Math.round(result.width * scale), height: Math.round(result.height * scale) },
+    png,
+    svg: job.svg ? svg : undefined
+  };
+}
+
+async function runJobFromServer(): Promise<void> {
+  let body: Record<string, unknown>;
+  try {
+    const job: Job = await (await fetch('/job')).json();
+    body = await runJob(job);
+  } catch (err) {
+    body = { failure: String((err as Error)?.stack ?? err) };
+  }
+  await fetch('/result', { method: 'POST', body: JSON.stringify(body) }).catch(() => {});
+  window.close();
+}
+
 declare global {
   interface Window {
     diagramsHub: {
@@ -163,3 +220,5 @@ declare global {
 }
 
 window.diagramsHub = { render, setSize, getSvg, listIcons };
+
+if (new URLSearchParams(location.search).has('job')) void runJobFromServer();

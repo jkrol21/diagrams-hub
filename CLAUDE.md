@@ -15,7 +15,8 @@ bun run build        # Production build to dist/
 bun run preview      # Preview production build
 bun run check        # Type-check Svelte + TypeScript (svelte-check)
 bun test             # Unit tests (bun's built-in runner, tests/*.test.ts) — the only command that needs Bun
-bun run examples     # Smoke test: render every file in examples/ via the CLI (-> .cli-cache/examples/)
+bun run build:renderer  # Rebuild the CLI's committed renderer (cli/renderer) — after ANY change in src/
+bun run examples     # Rebuild the renderer, then render every file in examples/ via the CLI (-> .cli-cache/examples/)
 node cli/diagrams-hub.mjs ...   # Agent CLI, see "Agent CLI" below
 ```
 
@@ -47,8 +48,8 @@ namespaces, state, ER, gantt, mindmap, Excalidraw). They feed the toolbar's Exam
 (`import.meta.glob` in `Toolbar.svelte`), `examples/architecture.mmd` is the default template for new
 diagrams, and `npm run examples` / `bun run examples` renders all of them. Add a file there when touching a diagram type.
 
-**Other entry points:** `render.html` → `src/render.ts` is a headless renderer (no UI) that exposes
-`window.diagramsHub` for the CLI; `cli/diagrams-hub.mjs` is the CLI itself.
+**Other entry points:** `render.html` → `src/render.ts` is the headless renderer (no UI) for the CLI,
+built into `cli/renderer/` (committed); `cli/diagrams-hub.mjs` is the CLI itself.
 
 **Key data flow:**
 - `App.svelte` owns the diagram store subscription and passes data down via props
@@ -126,17 +127,28 @@ node cli/diagrams-hub.mjs icons database                  # search lucide:/hub:/
 node cli/diagrams-hub.mjs render x.mmd -t theme.json      # render with a theme (Style panel -> "Copy JSON")
 ```
 
-Design rule: **an agent must never need to install anything or read setup docs.** Past failure: the CLI was
-TypeScript with a `bun` shebang and told users to run `bunx playwright install chromium`, so agents on
-Node-only machines started installing Bun and Playwright. Hence:
-- Plain ESM JavaScript with only `node:` built-ins; runs under `node` and `bun`. Anything that needs the
-  app's TypeScript (error excerpts, icon lists, themes) runs in the browser page via `window.diagramsHub`
-  (`src/render.ts`), not in the CLI process.
-- Self-setup on every run, each step a no-op when done: `npm install` / `bun install` if `node_modules`
-  is missing (whichever runtime runs the CLI); build `render.html` with `vite.render.config.ts` into
-  `.cli-cache/render/` when anything in `src/` or `package.json` is newer than the stamp (~10s); start a
-  browser, trying `DIAGRAMS_HUB_CHROMIUM` → Playwright's Chromium → Chrome/Edge channels → common
-  Chromium/Brave paths → downloading Playwright's headless shell (`install --only-shell chromium`).
+Design rule: **an agent must never need to install, build or repair anything.** Past failures: (1) the CLI
+was TypeScript with a `bun` shebang and told users to run `bunx playwright install chromium`, so agents
+started installing Bun and Playwright; (2) the CLI built the renderer at runtime and only ran `npm install`
+when `node_modules` was missing — after a `git pull` that added a dependency (`@fontsource/inter`) the
+build failed and agents spent their time fixing the environment; (3) Playwright's Chromium can't be
+installed on WSL without root (system libraries), although the Windows browser is right there. Hence:
+- Plain ESM JavaScript with only `node:` built-ins; runs under `node` and `bun`, **no `node_modules`
+  needed**. Anything that needs the app's TypeScript (error excerpts, icon lists, themes, PNG
+  rasterization) runs in the browser page (`src/render.ts`), not in the CLI process.
+- **The renderer is prebuilt and committed** in `cli/renderer/` (`vite.render.config.ts`, deterministic
+  output). After changing anything in `src/` (or dependencies) run `bun run build:renderer` and commit
+  `cli/renderer` with the change; `cli/renderer/SOURCE_HASH` records the inputs and `tests/renderer.test.ts`
+  fails when it is stale (`scripts/renderer-hash.mjs`). The CLI never builds.
+- **No Playwright / DevTools protocol.** The CLI serves `cli/renderer` plus one job on `127.0.0.1:<random>`
+  and spawns a browser headless with `render.html?job`; the page fetches `GET /job`
+  (`{command: render|check|icons, code, theme, look, maxSize, maxScale, svg}`), renders, rasterizes the
+  PNG with `svgToPngBlob` (same as the app's export), posts `POST /result` and calls `window.close()`,
+  which ends headless Chrome (killed after 3s otherwise). Browser order: `DIAGRAMS_HUB_CHROMIUM` (only
+  that) → last working one (`.cli-cache/browser.json`) → system Chrome/Chromium/Edge/Brave → Playwright's
+  cache (used, never downloaded) → on WSL the Windows Edge/Chrome under `/mnt/c` (profile dir in the
+  Windows `%TEMP%`, URL via `localhost` forwarding, no `--no-sandbox`). Each candidate must load the page
+  within 20s, otherwise the next is tried. Unique `--user-data-dir` per run, so parallel runs work.
   Progress goes to stderr, stdout stays clean for `--json`.
 - Environment problems exit with code 2 and a message aimed at the user, saying explicitly that more
   installs by the agent won't help.
