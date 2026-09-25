@@ -10,6 +10,8 @@ export interface Diagnostic {
   line?: number;
   /** 1-based column in the source, if known */
   column?: number;
+  /** Numbered source lines around `line` with a caret (see codeExcerpt) */
+  excerpt?: string;
 }
 
 /** Icons Mermaid's architecture diagram ships without a prefix */
@@ -151,7 +153,7 @@ export function findUnknownIcons(code: string, known: Set<string>): Diagnostic[]
     const { line, column } = offsetToLineColumn(code, m.index! + m[1].length);
     diagnostics.push({
       message: `Unknown icon "${icon}" (renders as a "?" placeholder). ` +
-        `Use lucide:<name>, hub:<name> or logo:<name>; list them with \`diagrams-hub icons\`.`,
+        `Use lucide:<name>, hub:<name> or logo:<name>; search them with the CLI's \`icons\` command.`,
       line,
       column,
     });

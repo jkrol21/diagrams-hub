@@ -1,5 +1,5 @@
 /**
- * Headless render entry used by the CLI (`cli/diagrams-hub.ts`).
+ * Headless render entry used by the CLI (`cli/diagrams-hub.mjs`).
  * Uses the same Mermaid config, icon packs and Excalidraw renderer as the
  * app and exposes `window.diagramsHub` for the CLI to drive via Chromium.
  */
@@ -7,7 +7,7 @@ import '@fontsource/caveat/400.css';
 import { initializeMermaid, registerArchitectureIcons, renderDiagram, generateMermaidId } from './lib/utils/mermaidConfig';
 import { renderExcalidraw } from './lib/utils/excalidrawRender';
 import { detectDiagramMode, type DiagramMode } from './lib/utils/diagramMode';
-import { locateError, findUnknownIcons, withHint, type Diagnostic } from './lib/utils/diagnostics';
+import { locateError, findUnknownIcons, withHint, codeExcerpt, type Diagnostic } from './lib/utils/diagnostics';
 import { DEFAULT_THEME, normalizeTheme } from './lib/stores/theme';
 import type { ThemeConfig } from './lib/types';
 import { hubIcons } from './lib/icons/hub';
@@ -43,7 +43,19 @@ const ready = (async () => {
   await registerArchitectureIcons();
 })();
 
+/** Render and attach source excerpts to all diagnostics (the CLI is plain JS and just prints them) */
 async function render(code: string, theme?: Partial<ThemeConfig>): Promise<RenderResult> {
+  const result = await renderDiagramResult(code, theme);
+  const withExcerpt = (d: Diagnostic): Diagnostic =>
+    d.line ? { ...d, excerpt: codeExcerpt(code, d.line, d.column) } : d;
+  return {
+    ...result,
+    error: result.error && withExcerpt(result.error),
+    warnings: result.warnings.map(withExcerpt)
+  };
+}
+
+async function renderDiagramResult(code: string, theme?: Partial<ThemeConfig>): Promise<RenderResult> {
   await ready;
   const resolved = normalizeTheme(theme);
   initializeMermaid(resolved);

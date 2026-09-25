@@ -9,22 +9,24 @@ Diagrams Hub is a browser-based tool for creating **presentation-ready architect
 ## Commands
 
 ```bash
-bun install          # Install dependencies
+bun install          # Install dependencies (npm install works too)
 bun run dev          # Dev server at localhost:5173 (auto-opens browser; BROWSER=none to suppress)
 bun run build        # Production build to dist/
 bun run preview      # Preview production build
 bun run check        # Type-check Svelte + TypeScript (svelte-check)
-bun test             # Unit tests (bun's built-in runner, tests/*.test.ts)
-bun run diagram ...  # Agent CLI, see "Agent CLI" below (= bun cli/diagrams-hub.ts ...)
+bun test             # Unit tests (bun's built-in runner, tests/*.test.ts) — the only command that needs Bun
 bun run examples     # Smoke test: render every file in examples/ via the CLI (-> .cli-cache/examples/)
+node cli/diagrams-hub.mjs ...   # Agent CLI, see "Agent CLI" below
 ```
 
-**Bun is the package manager and script runner** (lockfile: `bun.lock`; never use npm/yarn/pnpm
-to add deps — use `bun add` / `bun add -d`). If `bun` is missing: `curl -fsSL https://bun.sh/install | bash`
-(needs `unzip`), or without unzip/root: `npm install --prefix ~/.local bun` and symlink
-`~/.local/node_modules/.bin/bun` into `~/.local/bin`. Tests use `bun:test` and live in `tests/`
-(outside `src/`, so svelte-check doesn't type-check them); keep them to pure functions — DOM/rendering
-behaviour is verified through the CLI or a browser.
+**Runtime: Bun for development, Node for users.** `bun.lock` is the lockfile, so add dependencies with
+`bun add` / `bun add -d` when Bun is available. But everything a *user or agent* runs — the app scripts
+and especially the CLI — must work with plain Node/npm too: the user's machines often have no Bun, and
+agents that are told "run bun ..." start installing Bun. So: no `bun`-only APIs (`Bun.*`, `import.meta.dir`,
+`bun:*`) in `cli/` or `scripts/`, and user-facing docs show `node`/`npm` commands. If `bun` is missing
+here: `npm install --prefix ~/.local bun` and symlink `~/.local/node_modules/.bin/bun` into `~/.local/bin`.
+Tests use `bun:test` and live in `tests/` (outside `src/`, so svelte-check doesn't type-check them); keep
+them to pure functions — DOM/rendering behaviour is verified through the CLI or a browser.
 
 ## Architecture
 
@@ -43,10 +45,10 @@ behaviour is verified through the CLI or a browser.
 **Examples:** `examples/` has one file per diagram type (architecture, flowchart, sequence, class with
 namespaces, state, ER, gantt, mindmap, Excalidraw). They feed the toolbar's Examples menu
 (`import.meta.glob` in `Toolbar.svelte`), `examples/architecture.mmd` is the default template for new
-diagrams, and `bun run examples` renders all of them. Add a file there when touching a diagram type.
+diagrams, and `npm run examples` / `bun run examples` renders all of them. Add a file there when touching a diagram type.
 
 **Other entry points:** `render.html` → `src/render.ts` is a headless renderer (no UI) that exposes
-`window.diagramsHub` for the CLI; `cli/diagrams-hub.ts` is the CLI itself.
+`window.diagramsHub` for the CLI; `cli/diagrams-hub.mjs` is the CLI itself.
 
 **Key data flow:**
 - `App.svelte` owns the diagram store subscription and passes data down via props
@@ -91,26 +93,35 @@ Mermaid uses HTML labels (`<foreignObject>`), and `toBlob` throws. Errors are sh
 
 **localStorage keys:** `mermaid-editor:active`, `mermaid-editor:ui`, `mermaid-editor:theme`
 
-## Agent CLI (`cli/diagrams-hub.ts`)
+## Agent CLI (`cli/diagrams-hub.mjs`)
 
-For agents/scripts: validate a diagram and get a PNG for visual inspection, rendered by the same code
-as the app. `bun run diagram help` prints the full usage (the help text is the agent-facing
-documentation — keep it in sync when changing behaviour).
+For agents/scripts (usually running in *other* repos): check a diagram and get a PNG to look at, rendered
+by the same code as the app. The README has a copy-paste snippet for agent instructions; `help` prints the
+full usage — the help text is the agent-facing documentation, keep it in sync when changing behaviour.
 
 ```bash
-bun run diagram render diagram.mmd              # -> diagram.png (longest side 1200px by default)
-bun run diagram check - < diagram.mmd --json    # validate only, JSON result
-bun run diagram icons database                  # search lucide:/hub:/logo: icon names
-bun run diagram render x.mmd -t theme.json      # render with a theme (Style panel -> "Copy JSON")
+node cli/diagrams-hub.mjs render diagram.mmd              # -> diagram.png (longest side 1200px by default)
+node cli/diagrams-hub.mjs check - --json < diagram.mmd    # validate only, JSON result
+node cli/diagrams-hub.mjs icons database                  # search lucide:/hub:/logo: icon names
+node cli/diagrams-hub.mjs render x.mmd -t theme.json      # render with a theme (Style panel -> "Copy JSON")
 ```
 
+Design rule: **an agent must never need to install anything or read setup docs.** Past failure: the CLI was
+TypeScript with a `bun` shebang and told users to run `bunx playwright install chromium`, so agents on
+Node-only machines started installing Bun and Playwright. Hence:
+- Plain ESM JavaScript with only `node:` built-ins; runs under `node` and `bun`. Anything that needs the
+  app's TypeScript (error excerpts, icon lists, themes) runs in the browser page via `window.diagramsHub`
+  (`src/render.ts`), not in the CLI process.
+- Self-setup on every run, each step a no-op when done: `npm install` / `bun install` if `node_modules`
+  is missing (whichever runtime runs the CLI); build `render.html` with `vite.render.config.ts` into
+  `.cli-cache/render/` when anything in `src/` or `package.json` is newer than the stamp (~10s); start a
+  browser, trying `DIAGRAMS_HUB_CHROMIUM` → Playwright's Chromium → Chrome/Edge channels → common
+  Chromium/Brave paths → downloading Playwright's headless shell (`install --only-shell chromium`).
+  Progress goes to stderr, stdout stays clean for `--json`.
+- Environment problems exit with code 2 and a message aimed at the user, saying explicitly that more
+  installs by the agent won't help.
 - Exit codes: 0 ok (warnings possible), 1 diagram error, 2 usage/environment error.
-- How it works: builds `render.html` with `vite.render.config.ts` into `.cli-cache/render/` (gitignored;
-  rebuilt automatically when anything in `src/`, `package.json` or `bun.lock` is newer than the build
-  stamp — first run takes ~10s, later runs ~1-2s), serves it on a random localhost port, and drives it
-  with Playwright's Chromium (`bunx playwright install chromium` once; falls back to system Chrome, or
-  `DIAGRAMS_HUB_CHROMIUM=/path`).
-- `bun link` exposes it globally as `diagrams-hub` (`bin` in `package.json`).
+- `npm link` / `bun link` exposes it globally as `diagrams-hub` (`bin` in `package.json`).
 
 ## Conventions
 

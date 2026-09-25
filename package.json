@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "diagrams-hub": "cli/diagrams-hub.ts"
+    "diagrams-hub": "cli/diagrams-hub.mjs"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "diagram": "bun cli/diagrams-hub.ts",
+    "diagram": "node cli/diagrams-hub.mjs",
     "test": "bun test",
-    "examples": "bun scripts/render-examples.ts"
+    "examples": "node scripts/render-examples.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.4",
@@ -38,5 +38,8 @@
     "svelte-check": "^4.1.4",
     "typescript": "^5.7.3",
     "vite": "^6.0.11"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

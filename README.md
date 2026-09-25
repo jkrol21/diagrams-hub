@@ -5,9 +5,34 @@ Browser-based tool for creating presentation-ready architecture diagrams. Paste 
 ## Quick Start
 
 ```bash
-bun install
-bun run dev
+npm install && npm run dev      # or: bun install && bun run dev
 ```
+
+## Let AI Agents See Their Diagrams
+
+`cli/diagrams-hub.mjs` checks diagram code and renders it to a PNG the agent can open and look at —
+same renderer and icons as the app. It needs only Node.js 20+ (or Bun) and sets itself up on the first
+run (installs its dependencies, uses an installed Chrome/Edge/Chromium or downloads a headless Chromium
+once). **Nothing to install beforehand, neither by you nor by the agent.**
+
+Paste this into your agents' instructions (fix the path to where you cloned this repo):
+
+````markdown
+## Rendering diagrams
+
+To check a Mermaid or Excalidraw diagram and see what it looks like, run:
+
+    node /path/to/diagrams-hub/cli/diagrams-hub.mjs render diagram.mmd
+
+- Success prints `image: /absolute/path/diagram.png` — open that PNG to inspect the diagram visually.
+- A syntax error prints `ERROR line X, column Y: ...` plus the offending source lines — fix and rerun.
+- Without a file, pipe the code in: `node /path/to/diagrams-hub/cli/diagrams-hub.mjs render - < diagram.mmd`
+  (or a heredoc); the image path is printed the same way.
+- `... icons <word>` lists icon names for architecture-beta; `... help` has all options and a syntax cheat sheet.
+- The first run sets itself up (may take a minute). Do not install bun, playwright or browsers yourself.
+````
+
+Optionally `npm link` (or `bun link`) in this repo puts a global `diagrams-hub` command on the PATH.
 
 ## Icons
 
@@ -116,7 +141,7 @@ background, plus font family and size. Changes apply live and are used for the P
 ## Examples
 
 **Examples** in the toolbar loads a sample for each supported diagram type (from `examples/`).
-`bun run examples` renders all of them with the CLI as a smoke test.
+`npm run examples` renders all of them with the CLI as a smoke test.
 
 ## Navigating the Preview
 
@@ -124,24 +149,19 @@ Scroll or pinch to zoom toward the cursor (5%–1000%), drag to pan. The preview
 until you zoom or pan yourself; double-click the background or use the fit button to fit again, and the
 % button for 100%.
 
-## CLI for Agents
-
-`cli/diagrams-hub.ts` renders and validates diagrams headlessly with exactly the same renderer and icon
-packs as the app — made for AI agents that write diagram code and need feedback.
+## CLI Reference
 
 ```bash
-bunx playwright install chromium   # once (or have Google Chrome installed)
-bun link                           # optional: makes `diagrams-hub` available everywhere
-
-diagrams-hub render diagram.mmd              # -> diagram.png, max 1200px on the longest side
-diagrams-hub render - -o /tmp/arch.png < diagram.mmd
-diagrams-hub check diagram.mmd --json        # validate only
-diagrams-hub icons server                    # find icon names
-diagrams-hub render diagram.mmd -t theme.json   # use colors/fonts from the Style panel
-diagrams-hub help                            # full usage + architecture-beta cheat sheet
+node cli/diagrams-hub.mjs render diagram.mmd          # -> diagram.png, max 1200px on the longest side
+node cli/diagrams-hub.mjs render - -o /tmp/a.png < diagram.mmd
+node cli/diagrams-hub.mjs check diagram.mmd --json    # validate only, machine-readable
+node cli/diagrams-hub.mjs icons server                # find icon names
+node cli/diagrams-hub.mjs render x.mmd -t theme.json  # colors/fonts from the Style panel ("Copy JSON")
+node cli/diagrams-hub.mjs setup                       # optional: do the one-time setup right now
+node cli/diagrams-hub.mjs help                        # everything else
 ```
 
-Without `bun link`, use `bun run diagram ...` inside the repo or `bun /path/to/diagrams-hub/cli/diagrams-hub.ts ...`.
+Inside the repo, `npm run diagram -- ...` / `bun run diagram ...` work too.
 
 Syntax errors come with line, column, a source excerpt and — for architecture-beta — a hint:
 
@@ -153,19 +173,25 @@ Hint: "servce" is not a keyword. Lines must start with service, group or junctio
     |            ^
 ```
 
-Unknown icon names (which Mermaid silently draws as a "?") are reported as warnings.
+Unknown icon names (which Mermaid silently draws as a "?") are reported as warnings. Exit codes: 0 ok,
+1 diagram error, 2 the tool couldn't run (the message says why).
+
+If no browser can be started (e.g. a bare Linux server without Chromium's system libraries), the CLI
+says so; install Google Chrome, set `DIAGRAMS_HUB_CHROMIUM=/path/to/chrome`, or run
+`npx playwright install-deps chromium` once as root.
 
 ## Commands
 
+Everything works with npm or Bun (`npm run X` / `bun run X`); Bun is only required for the unit tests.
+
 ```bash
-bun install          # Install dependencies
-bun run dev          # Dev server at localhost:5173
-bun run build        # Production build
-bun run preview      # Preview production build
-bun run check        # Type-check
-bun test             # Unit tests
-bun run examples     # Render all examples (smoke test)
-bun run diagram help # Agent CLI
+npm install          # Install dependencies
+npm run dev          # Dev server at localhost:5173
+npm run build        # Production build
+npm run preview      # Preview production build
+npm run check        # Type-check
+npm run examples     # Render all examples with the CLI (smoke test)
+bun test             # Unit tests (needs Bun)
 ```
 
 ## Adding New Hub Icons

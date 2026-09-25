@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 
-// Build of the headless renderer used by the CLI (cli/diagrams-hub.ts).
+// Build of the headless renderer used by the CLI (cli/diagrams-hub.mjs).
 // Output goes to .cli-cache/render and is rebuilt automatically when sources change.
 export default defineConfig({
   plugins: [svelte()],
