@@ -72,8 +72,28 @@ uses the zoom buttons; it refits on container resize while auto-fitting, and whe
 5%–1000%, wheel zoom is proportional to `deltaY` (smooth on trackpads/pinch). Double-clicking the
 background fits; the % button jumps to 100%.
 
-**Theme / Style panel:** `ThemePanel.svelte` edits `themeStore` (presets Light/Neutral/Dark, per-color
-pickers, font family/size); any edit marks the theme `custom`. `normalizeTheme()` fills keys missing from
+**Looks (styles × palettes):** `utils/looks.ts` defines Tailwind color scales, palettes (ordered hue
+lists), the three styles (`outline`/`solid`/`soft` → `roles()` per hue), `buildTheme(look)`,
+`lookVariables()` (mindmap `cScale*`, pie, gantt, sequence, ER variables) and the `%% style:` /
+`%% palette:` directives. `resolveTheme(base, code, override)` gives the theme actually used — priority:
+directives in the code > CLI flags > Style panel / `--theme`; classic themes (`look: null`) stay classic
+unless a look is requested. Mermaid theme variables can only give everything the first hue, so
+`utils/applyLook.ts` post-processes the SVG *in the DOM* (it needs layout): top-level groups get
+consecutive hues (starting at the second when there are ungrouped nodes), nodes take their innermost
+group's hue by geometry, architecture icons get tiles, the architecture groups layer moves behind the
+services (Mermaid draws it on top), edge labels get dark text on white. It skips author-styled nodes
+(inline `fill`), state start/end dots and mindmap branches (colored via `cScale*`). Preview and
+`src/render.ts` both call it after inserting the SVG and export the serialized result. Adding a palette:
+`PALETTES` in looks.ts plus the list and help text in `cli/diagrams-hub.mjs`. Check changes with
+`node cli/diagrams-hub.mjs render examples/X.mmd -s solid` for each style — every diagram type has its
+own SVG structure.
+
+**Fonts:** Inter is bundled (`utils/fonts.ts`, `@fontsource/inter`); rendering waits for it because
+Mermaid measures text, and the PNG export inlines it (an `<img>` can't use page fonts).
+
+**Theme / Style panel:** `ThemePanel.svelte` edits `themeStore` (style + palette, classic presets
+Light/Neutral/Dark, per-color pickers, font family/size); any color/font edit marks the theme `custom`
+(keeping its look). The default theme is `modern`/`soft`; stored themes without `look` stay classic. `normalizeTheme()` fills keys missing from
 older stored themes — add new color keys to `ThemeConfig`, all presets and `mapThemeToMermaid`. Mermaid's
 `base` theme derives cluster fill from `tertiaryColor` (green) and edge label background from
 `secondaryColor` (orange), so `clusterBkg`/`edgeLabelBackground` etc. are set explicitly. Class diagram

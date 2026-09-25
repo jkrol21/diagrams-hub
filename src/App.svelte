@@ -9,7 +9,6 @@
 
   import { diagramStore, code, documentName } from './lib/stores/diagram';
   import { uiStore } from './lib/stores/ui';
-  import { themeStore } from './lib/stores/theme';
   import { openFile, saveDiagram, saveAs } from './lib/utils/fileSystem';
   import { exportToPng } from './lib/utils/exportPng';
   import { detectDiagramMode } from './lib/utils/diagramMode';
@@ -22,6 +21,7 @@
   let currentName = $state('Untitled');
   let saveStatus = $state<'saved' | 'unsaved' | 'saving' | 'error'>('saved');
   let lastRenderedSvg = $state<string | null>(null);
+  let lastBackground = '#ffffff';
   let highlight = $state<SourceRange | null>(null);
   let styleOpen = $state(false);
   let exporting = $state(false);
@@ -54,8 +54,9 @@
     }
   }
 
-  function handleRender(svg: string) {
+  function handleRender(svg: string, background: string) {
     lastRenderedSvg = svg;
+    lastBackground = background;
   }
 
   function handleEditLabel(oldLabel: string, newLabel: string) {
@@ -154,7 +155,7 @@
     if (!lastRenderedSvg || exporting) return;
     exporting = true;
     try {
-      await exportToPng(lastRenderedSvg, currentName, 2, themeStore.getTheme().colors.background);
+      await exportToPng(lastRenderedSvg, currentName, 2, lastBackground);
     } catch (err) {
       console.error('PNG export failed:', err);
       alert(`PNG export failed: ${err instanceof Error ? err.message : err}`);

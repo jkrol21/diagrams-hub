@@ -39,6 +39,23 @@ QUICK START — this is all you need
   its own dependencies and uses an installed Chrome/Edge/Chromium, or downloads a headless
   Chromium once (can take a minute). Do not install bun, playwright or browsers yourself.
 
+COLORS — consistent and modern by default (style soft, palette modern)
+  Choose with comment lines in the diagram code (preferred: the look stays with the diagram,
+  also in the web app), or with --style / --palette:
+    %% style: soft         light fill + darker border in the same color (Excalidraw-like)
+    %% style: solid        strong color fill, white text
+    %% style: outline      colored border only, no fill
+    %% palette: modern     indigo, teal, amber, rose, sky, violet, emerald
+    %% palette: ocean      blue, cyan, teal, indigo, sky
+    %% palette: sunset     orange, rose, amber, fuchsia, red
+    %% palette: forest     emerald, teal, lime, green, cyan
+    %% palette: berry      violet, fuchsia, pink, indigo, rose
+    %% palette: mono       slate (grayscale)
+  Groups (flowchart subgraph, class namespace, architecture group) take the palette's
+  colors in order and nodes inside a group take its color — so use groups to color-code.
+  Nodes outside groups use the first color. Don't hand-pick colors with classDef/style
+  unless asked; explicit styles are kept as written.
+
 COMMANDS
   render [FILE|-]   Check the diagram and render it to PNG (default command)
   check  [FILE|-]   Only check the syntax, no image
@@ -59,11 +76,13 @@ OPTIONS
                        $TMPDIR/diagrams-hub/diagram-<hash>.png when reading stdin
   -m, --max-size PX    Longest side of the PNG in pixels (default ${DEFAULT_MAX_SIZE})
   -c, --code TEXT      Diagram source as an argument instead of FILE/stdin
+  -s, --style NAME     soft | solid | outline (a %% style: line in the code wins)
+  -p, --palette NAME   modern | ocean | sunset | forest | berry | mono (%% palette: wins)
   -t, --theme FILE     Colors/fonts as JSON (the web app's Style panel -> "Copy JSON");
                        partial themes work: {"colors": {"clusterBkg": "#eef2f7"}}
       --svg PATH       Also write the SVG
       --json           Machine-readable result on stdout:
-                       {"ok", "mode", "image", "svg", "width", "height", "error", "warnings"},
+                       {"ok", "mode", "look", "image", "svg", "width", "height", "error", "warnings"},
                        error/warnings: {"message", "line", "column", "excerpt"}
 
 EXIT CODES
@@ -92,6 +111,16 @@ ARCHITECTURE-BETA CHEAT SHEET
 `;
 
 class UsageError extends Error {}
+
+// Keep in sync with LOOK_STYLES / PALETTES in src/lib/utils/looks.ts (and the COLORS help above)
+const STYLES = ['soft', 'solid', 'outline'];
+const PALETTES = ['modern', 'ocean', 'sunset', 'forest', 'berry', 'mono'];
+
+function choice(flag, value, allowed) {
+  const v = value.toLowerCase();
+  if (!allowed.includes(v)) throw new UsageError(`${flag} must be one of: ${allowed.join(', ')}`);
+  return v;
+}
 class EnvError extends Error {}
 
 // ── Argument parsing ────────────────────────────────────────────────────────
@@ -113,6 +142,8 @@ function parseArgs(argv) {
       case '--svg': opts.svg = value(); break;
       case '-c': case '--code': opts.code = value(); break;
       case '-t': case '--theme': opts.theme = value(); break;
+      case '-s': case '--style': opts.style = choice(arg, value(), STYLES); break;
+      case '-p': case '--palette': opts.palette = choice(arg, value(), PALETTES); break;
       case '--json': opts.json = true; break;
       case '-m': case '--max-size': {
         const n = Number(value());
@@ -335,7 +366,11 @@ function defaultImagePath(opts, code) {
 async function renderCode(code, opts) {
   const theme = loadTheme(opts.theme);
   return withRenderer(async (page) => {
-    const result = await page.evaluate(([c, t]) => window.diagramsHub.render(c, t ?? undefined), [code, theme ?? null]);
+    const look = { ...(opts.style && { style: opts.style }), ...(opts.palette && { palette: opts.palette }) };
+    const result = await page.evaluate(
+      ([c, t, l]) => window.diagramsHub.render(c, t ?? undefined, l),
+      [code, theme ?? null, look],
+    );
     const output = {
       ok: !result.error,
       mode: result.mode,
@@ -343,6 +378,7 @@ async function renderCode(code, opts) {
       svg: null,
       width: 0,
       height: 0,
+      look: result.look,
       error: result.error,
       warnings: result.warnings,
     };
@@ -385,7 +421,8 @@ function report(out, opts) {
   } else if (opts.command === 'check') {
     lines.push(`OK (${out.mode}) the diagram is valid`);
   } else {
-    lines.push(`OK (${out.mode}) rendered ${out.width}x${out.height}px`, `image: ${out.image}`);
+    const look = out.look ? `, style ${out.look.style}, palette ${out.look.palette}` : '';
+    lines.push(`OK (${out.mode}${look}) rendered ${out.width}x${out.height}px`, `image: ${out.image}`);
     if (out.svg) lines.push(`svg: ${out.svg}`);
   }
   for (const w of out.warnings) lines.push(`WARNING ${describe(w)}`);

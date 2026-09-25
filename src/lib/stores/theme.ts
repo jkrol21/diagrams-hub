@@ -1,11 +1,15 @@
 import { writable, get } from 'svelte/store';
 import type { ThemeConfig } from '../types';
 import { saveToLocalStorage, loadFromLocalStorage } from '../utils/localStorage';
+import { buildTheme, DEFAULT_LOOK } from '../utils/looks';
 
 const STORAGE_KEY = 'mermaid-editor:theme';
 
-/** Default light theme */
-export const DEFAULT_THEME: ThemeConfig = {
+/** Default theme: modern palette, soft style (see utils/looks.ts) */
+export const DEFAULT_THEME: ThemeConfig = buildTheme(DEFAULT_LOOK);
+
+/** Classic light theme (the pre-palette default) */
+export const CLASSIC_LIGHT: ThemeConfig = {
   id: 'light',
   name: 'Light',
   colors: {
@@ -33,9 +37,9 @@ export const DEFAULT_THEME: ThemeConfig = {
   }
 };
 
-/** Built-in theme presets */
+/** Classic single-color presets (no palette/group hues) */
 export const THEME_PRESETS: ThemeConfig[] = [
-  DEFAULT_THEME,
+  CLASSIC_LIGHT,
   {
     id: 'neutral',
     name: 'Neutral',
@@ -97,11 +101,17 @@ export const THEME_PRESETS: ThemeConfig[] = [
  * color was added) from the default theme.
  */
 export function normalizeTheme(theme: Partial<ThemeConfig> | null | undefined): ThemeConfig {
+  if (!theme) return DEFAULT_THEME;
+  // Stored themes from before looks existed have an id but no `look`: keep them classic.
+  // Partial themes (e.g. CLI --theme {"colors": {...}}) keep the default look.
+  const look = 'look' in theme ? theme.look ?? null : theme.id ? null : DEFAULT_THEME.look;
+  const base = look === null && theme.id ? CLASSIC_LIGHT : DEFAULT_THEME;
   return {
-    id: theme?.id ?? DEFAULT_THEME.id,
-    name: theme?.name ?? DEFAULT_THEME.name,
-    colors: { ...DEFAULT_THEME.colors, ...theme?.colors },
-    fonts: { ...DEFAULT_THEME.fonts, ...theme?.fonts }
+    id: theme.id ?? base.id,
+    name: theme.name ?? base.name,
+    look,
+    colors: { ...base.colors, ...theme.colors },
+    fonts: { ...base.fonts, ...theme.fonts }
   };
 }
 

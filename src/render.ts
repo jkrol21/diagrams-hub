@@ -9,6 +9,9 @@ import { renderExcalidraw } from './lib/utils/excalidrawRender';
 import { detectDiagramMode, type DiagramMode } from './lib/utils/diagramMode';
 import { locateError, findUnknownIcons, withHint, codeExcerpt, type Diagnostic } from './lib/utils/diagnostics';
 import { DEFAULT_THEME, normalizeTheme } from './lib/stores/theme';
+import { resolveTheme, parseLookDirectives, PALETTE_NAMES, LOOK_STYLES, type Look } from './lib/utils/looks';
+import { applyLook } from './lib/utils/applyLook';
+import { fontsReady } from './lib/utils/fonts';
 import type { ThemeConfig } from './lib/types';
 import { hubIcons } from './lib/icons/hub';
 import { buildLogoIconPack } from './lib/icons/logos';
@@ -19,6 +22,8 @@ export interface RenderResult {
   error: Diagnostic | null;
   /** Problems that still render, but probably not as intended */
   warnings: Diagnostic[];
+  /** Palette + style used, or null for a classic theme / Excalidraw */
+  look: Look | null;
   width: number;
   height: number;
 }
@@ -40,12 +45,12 @@ async function iconNames(): Promise<Set<string>> {
 
 const ready = (async () => {
   initializeMermaid(DEFAULT_THEME);
-  await registerArchitectureIcons();
+  await Promise.all([registerArchitectureIcons(), fontsReady()]);
 })();
 
 /** Render and attach source excerpts to all diagnostics (the CLI is plain JS and just prints them) */
-async function render(code: string, theme?: Partial<ThemeConfig>): Promise<RenderResult> {
-  const result = await renderDiagramResult(code, theme);
+async function render(code: string, theme?: Partial<ThemeConfig>, look?: Partial<Look>): Promise<RenderResult> {
+  const result = await renderDiagramResult(code, theme, look);
   const withExcerpt = (d: Diagnostic): Diagnostic =>
     d.line ? { ...d, excerpt: codeExcerpt(code, d.line, d.column) } : d;
   return {
@@ -55,9 +60,13 @@ async function render(code: string, theme?: Partial<ThemeConfig>): Promise<Rende
   };
 }
 
-async function renderDiagramResult(code: string, theme?: Partial<ThemeConfig>): Promise<RenderResult> {
+async function renderDiagramResult(
+  code: string,
+  theme?: Partial<ThemeConfig>,
+  lookOverride?: Partial<Look>
+): Promise<RenderResult> {
   await ready;
-  const resolved = normalizeTheme(theme);
+  const resolved = resolveTheme(normalizeTheme(theme), code, lookOverride);
   initializeMermaid(resolved);
   const out = document.getElementById('out')!;
   out.innerHTML = '';
@@ -66,7 +75,16 @@ async function renderDiagramResult(code: string, theme?: Partial<ThemeConfig>): 
   const trimmed = code.trim();
   const looksLikeJson = trimmed.startsWith('{') || trimmed.startsWith('[');
   const mode = detectDiagramMode(code);
-  const result: RenderResult = { mode, error: null, warnings: [], width: 0, height: 0 };
+  const result: RenderResult = {
+    mode, error: null, warnings: [], look: mode === 'mermaid' ? resolved.look ?? null : null, width: 0, height: 0
+  };
+  for (const bad of parseLookDirectives(code).invalid) {
+    const valid = bad.key === 'style' ? LOOK_STYLES : PALETTE_NAMES;
+    result.warnings.push({
+      message: `Unknown ${bad.key} "${bad.value}" (ignored). Valid: ${valid.join(', ')}.`,
+      line: bad.line
+    });
+  }
 
   if (!trimmed) {
     result.error = { message: 'Empty input: expected Mermaid code or Excalidraw JSON.' };
@@ -107,6 +125,7 @@ async function renderDiagramResult(code: string, theme?: Partial<ThemeConfig>): 
 
   out.innerHTML = svg;
   const svgEl = out.querySelector('svg')!;
+  if (mode === 'mermaid' && resolved.look) applyLook(svgEl, resolved.look);
   const vb = svgEl.viewBox.baseVal;
   result.width = vb && vb.width ? vb.width : svgEl.getBoundingClientRect().width;
   result.height = vb && vb.height ? vb.height : svgEl.getBoundingClientRect().height;

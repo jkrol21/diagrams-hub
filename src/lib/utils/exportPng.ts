@@ -1,4 +1,5 @@
 import { svgSize } from './svg';
+import { embeddedFontCss } from './fonts';
 
 /**
  * Export an SVG string as a high-resolution PNG download.
@@ -33,6 +34,11 @@ export async function svgToPngBlob(svgString: string, scale: number, background:
   }
 
   const { x, y, width, height } = svgSize(svgEl);
+
+  // The rasterizing <img> can't use the page's web fonts: inline Inter
+  const fontStyle = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'style');
+  fontStyle.textContent = await embeddedFontCss();
+  svgEl.insertBefore(fontStyle, svgEl.firstChild);
 
   // Background as first child, covering the viewBox
   const rect = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect');

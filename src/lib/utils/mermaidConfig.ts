@@ -3,6 +3,7 @@ import type { ThemeConfig } from '../types';
 import { hubIcons } from '../icons/hub';
 import { buildLogoIconPack } from '../icons/logos';
 import { diagnosticFromError, type Diagnostic } from './diagnostics';
+import { lookVariables } from './looks';
 
 /** Register all icon packs for architecture diagrams (Lucide + Hub + Logos) */
 export async function registerArchitectureIcons(): Promise<void> {
@@ -69,7 +70,8 @@ export function mapThemeToMermaid(theme: ThemeConfig): Record<string, string | n
     fontSize: `${theme.fonts.fontSize}px`,
     archEdgeColor: c.archEdgeColor,
     archEdgeArrowColor: c.archEdgeColor,
-    archGroupBorderColor: c.clusterBorder
+    archGroupBorderColor: c.clusterBorder,
+    ...(theme.look ? lookVariables(theme.look) : {})
   };
 }
 

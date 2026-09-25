@@ -28,6 +28,8 @@ To check a Mermaid or Excalidraw diagram and see what it looks like, run:
 - A syntax error prints `ERROR line X, column Y: ...` plus the offending source lines — fix and rerun.
 - Without a file, pipe the code in: `node /path/to/diagrams-hub/cli/diagrams-hub.mjs render - < diagram.mmd`
   (or a heredoc); the image path is printed the same way.
+- Colors are consistent and modern by default. To change them, add `%% style: soft|solid|outline` and/or
+  `%% palette: modern|ocean|sunset|forest|berry|mono` lines to the diagram; groups get the palette's colors in order.
 - `... icons <word>` lists icon names for architecture-beta; `... help` has all options and a syntax cheat sheet.
 - The first run sets itself up (may take a minute). Do not install bun, playwright or browsers yourself.
 ````
@@ -131,9 +133,34 @@ Click any element in the preview (service, group, edge, label, or an Excalidraw 
 jumps to its definition: the line is highlighted, the id is selected and the cursor is ready for typing.
 Dragging still pans the canvas; double-clicking a label still edits it inline.
 
+## Colors: Styles and Palettes
+
+Every diagram gets a consistent, modern color scheme from a **style** and a **palette**:
+
+| Style | Look |
+| --- | --- |
+| `soft` (default) | light fill with a darker border in the same color (Excalidraw-like) |
+| `solid` | strong color fill, white text |
+| `outline` | colored border only, no fill |
+
+Palettes: `modern` (default: indigo, teal, amber, rose, …), `ocean`, `sunset`, `forest`, `berry`, `mono`.
+Groups — flowchart subgraphs, class diagram namespaces, architecture groups — take the palette's colors in
+order and the nodes inside take their group's color; architecture-beta icons sit on colored tiles.
+
+Pick them in the Style panel, with `--style` / `--palette` in the CLI, or — so the diagram carries its look
+everywhere — with comment lines in the code, which win over both:
+
+```
+%% style: solid
+%% palette: ocean
+flowchart LR
+    ...
+```
+
 ## Style Panel
 
-**Style** in the toolbar opens a panel for the rendering look: presets (Light, Neutral, Dark), colors for
+**Style** in the toolbar opens a panel for the rendering look: style and palette (see above), the classic
+single-color presets (Light, Neutral, Dark), colors for
 nodes, groups (subgraphs, class diagram namespaces, architecture groups), edges, notes and the
 background, plus font family and size. Changes apply live and are used for the PNG export.
 "Copy JSON" copies the theme for the CLI's `--theme` option.

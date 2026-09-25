@@ -5,12 +5,17 @@
   import { detectDiagramMode } from '../utils/diagramMode';
   import { themeStore } from '../stores/theme';
   import { svgSize, normalizeSvgSize } from '../utils/svg';
+  import { resolveTheme } from '../utils/looks';
+  import { applyLook } from '../utils/applyLook';
+  import { fontsReady } from '../utils/fonts';
+  import type { ThemeConfig } from '../types';
   import { locateMermaidElement, locateExcalidrawElement, type SourceRange } from '../utils/sourceMap';
 
   interface Props {
     code: string;
     onerror: (error: string | null) => void;
-    onrender?: (svg: string) => void;
+    /** Rendered SVG (with the look applied) and the background to export it on */
+    onrender?: (svg: string, background: string) => void;
     oneditlabel?: (oldLabel: string, newLabel: string) => void;
     /** Called with the source range of a clicked element (null = nothing found) */
     onselect?: (range: SourceRange | null) => void;
@@ -41,7 +46,8 @@
   let autoFit = true;
   let lastKind = '';
   let lastSize = { width: 0, height: 0 };
-  let canvasBackground = $state(themeStore.getTheme().colors.background);
+  let baseTheme: ThemeConfig = themeStore.getTheme();
+  let canvasBackground = $state(baseTheme.colors.background);
 
   const MIN_ZOOM = 0.05;
   const MAX_ZOOM = 10;
@@ -58,8 +64,7 @@
     registerArchitectureIcons();
 
     const unsubscribe = themeStore.subscribe((theme) => {
-      canvasBackground = theme.colors.background;
-      initializeMermaid(theme);
+      baseTheme = theme;
       debouncedRender();
     });
 
@@ -92,8 +97,13 @@
 
     isLoading = true;
     const mode = detectDiagramMode(code);
+    // `%% style:` / `%% palette:` in the code win over the Style panel
+    const theme = resolveTheme(baseTheme, code);
+    canvasBackground = theme.colors.background;
 
     try {
+      await fontsReady();
+      if (mode === 'mermaid') initializeMermaid(theme);
       let svg: string;
       let error: string | null;
 
@@ -110,12 +120,18 @@
         onerror(null);
         svg = normalizeSvgSize(svg);
         svgContent = svg;
-        onrender?.(svg);
+        await tick();
+
+        const svgEl = canvasEl?.querySelector('svg');
+        if (svgEl && mode === 'mermaid' && theme.look) {
+          applyLook(svgEl, theme.look);
+          svg = new XMLSerializer().serializeToString(svgEl);
+        }
+        onrender?.(svg, theme.colors.background);
 
         // Refit on first render, while auto-fitting, or when a different
         // diagram was loaded/pasted (other type or very different size)
         const kind = diagramKind(code);
-        await tick();
         const size = currentSvgSize();
         const ratio = lastSize.width ? (size.width * size.height) / (lastSize.width * lastSize.height) : 1;
         if (!hasFitted || autoFit || kind !== lastKind || ratio > 3 || ratio < 1 / 3) {

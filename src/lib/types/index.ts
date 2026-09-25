@@ -1,3 +1,5 @@
+import type { Look } from '../utils/looks';
+
 /** Represents a saved diagram document */
 export interface DiagramDocument {
   id: string;
@@ -12,6 +14,8 @@ export interface DiagramDocument {
 export interface ThemeConfig {
   id: string;
   name: string;
+  /** Palette + box style the colors were generated from; null/absent = classic theme */
+  look?: Look | null;
   colors: {
     primaryColor: string;
     primaryTextColor: string;

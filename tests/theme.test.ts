@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { normalizeSvgSize } from '../src/lib/utils/svg';
-import { normalizeTheme, DEFAULT_THEME, THEME_PRESETS } from '../src/lib/stores/theme';
+import { normalizeTheme, DEFAULT_THEME, CLASSIC_LIGHT, THEME_PRESETS } from '../src/lib/stores/theme';
 
 describe('svg sizing', () => {
   test('replaces width="100%" and max-width with the viewBox size', () => {
@@ -23,7 +23,8 @@ describe('themes', () => {
     const old = { id: 'custom', name: 'Custom', colors: { primaryColor: '#123456' }, fonts: { fontSize: 18 } };
     const t = normalizeTheme(old as never);
     expect(t.colors.primaryColor).toBe('#123456');
-    expect(t.colors.clusterBkg).toBe(DEFAULT_THEME.colors.clusterBkg);
+    expect(t.colors.clusterBkg).toBe(CLASSIC_LIGHT.colors.clusterBkg);
+    expect(t.look).toBeNull();
     expect(t.fonts).toEqual({ fontFamily: DEFAULT_THEME.fonts.fontFamily, fontSize: 18 });
   });
 

@@ -1,5 +1,9 @@
 <script lang="ts">
   import { themeStore, THEME_PRESETS, DEFAULT_THEME } from '../stores/theme';
+  import {
+    buildTheme, paletteSwatches, PALETTE_NAMES, LOOK_STYLES, DEFAULT_LOOK,
+    type LookStyle, type PaletteName
+  } from '../utils/looks';
   import type { ThemeConfig } from '../types';
 
   interface Props {
@@ -76,6 +80,17 @@
 
   $effect(() => themeStore.subscribe((t) => (theme = t)));
 
+  const STYLE_LABELS: Record<LookStyle, { label: string; hint: string }> = {
+    soft: { label: 'Soft', hint: 'Light fill, darker border in the same color' },
+    solid: { label: 'Solid', hint: 'Strong color fill, white text' },
+    outline: { label: 'Outline', hint: 'Colored border only, no fill' }
+  };
+
+  function setLook(look: { palette?: PaletteName; style?: LookStyle }) {
+    const current = theme.look ?? DEFAULT_LOOK;
+    themeStore.setTheme(buildTheme({ ...current, ...look }, theme.fonts));
+  }
+
   const isCustomFont = $derived(!FONTS.some((f) => f.value === theme.fonts.fontFamily));
 
   function setColor(row: ColorRow, value: string) {
@@ -116,12 +131,52 @@
 
   <div class="scroll">
     <section>
-      <h3>Preset</h3>
+      <h3>Style</h3>
+      <div class="styles">
+        {#each LOOK_STYLES as style (style)}
+          {@const sw = paletteSwatches(theme.look?.palette ?? DEFAULT_LOOK.palette, style)[0]}
+          <button
+            class="style-btn"
+            class:active={theme.look?.style === style}
+            onclick={() => setLook({ style })}
+            title={STYLE_LABELS[style].hint}
+          >
+            <span class="style-box" style="background: {sw.fill}; border-color: {sw.stroke}"></span>
+            {STYLE_LABELS[style].label}
+          </button>
+        {/each}
+      </div>
+
+      <h3 class="sub">Palette</h3>
+      <div class="palettes">
+        {#each PALETTE_NAMES as palette (palette)}
+          <button
+            class="palette-btn"
+            class:active={theme.look?.palette === palette}
+            onclick={() => setLook({ palette })}
+          >
+            <span class="palette-swatches">
+              {#each paletteSwatches(palette, theme.look?.style ?? DEFAULT_LOOK.style).slice(0, 5) as sw, i (i)}
+                <span style="background: {sw.fill}; border-color: {sw.stroke}"></span>
+              {/each}
+            </span>
+            {palette}
+          </button>
+        {/each}
+      </div>
+      <p class="note">
+        Groups get the palette's colors in order. A diagram can choose its own look with
+        <code>%% style: soft</code> and <code>%% palette: ocean</code> lines — those win over this panel.
+      </p>
+    </section>
+
+    <section>
+      <h3>Classic</h3>
       <div class="presets">
         {#each THEME_PRESETS as preset (preset.id)}
           <button
             class="preset"
-            class:active={theme.id === preset.id}
+            class:active={!theme.look && theme.id === preset.id}
             onclick={() => themeStore.setTheme(preset)}
           >
             <span class="swatches">
@@ -134,7 +189,7 @@
         {/each}
       </div>
       {#if theme.id === 'custom'}
-        <p class="note">Customized — pick a preset to start over.</p>
+        <p class="note">Colors customized — pick a style, palette or preset to start over.</p>
       {/if}
     </section>
 
@@ -249,6 +304,75 @@
 
   section:last-child {
     border-bottom: none;
+  }
+
+  .styles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .style-btn,
+  .palette-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 12px;
+    color: #495057;
+    cursor: pointer;
+    text-transform: capitalize;
+  }
+
+  .style-btn:hover,
+  .palette-btn:hover {
+    border-color: #adb5bd;
+  }
+
+  .style-btn.active,
+  .palette-btn.active {
+    border-color: #4C78A8;
+    box-shadow: 0 0 0 1px #4C78A8;
+    color: #212529;
+  }
+
+  .style-box {
+    width: 16px;
+    height: 12px;
+    border-radius: 3px;
+    border: 2px solid;
+  }
+
+  .sub {
+    margin-top: 12px;
+  }
+
+  .palettes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .palette-swatches {
+    display: flex;
+    gap: 2px;
+  }
+
+  .palette-swatches span {
+    width: 10px;
+    height: 14px;
+    border-radius: 2px;
+    border: 1.5px solid;
+  }
+
+  .note code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background: #f1f3f5;
+    padding: 0 3px;
+    border-radius: 3px;
   }
 
   .presets {
