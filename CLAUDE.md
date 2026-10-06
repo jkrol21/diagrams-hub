@@ -42,9 +42,11 @@ them to pure functions — DOM/rendering behaviour is verified through the CLI o
   - `sourceMap.ts` — maps a clicked SVG element back to a source range (click-to-source)
   - `svg.ts` — natural SVG size from the viewBox; `normalizeSvgSize` replaces Mermaid's `width="100%"` + `max-width` (otherwise the preview SVG shrinks to its unsized container and fit/zoom break)
   - `diagnostics.ts` — structured errors (line/column from Langium `err.result` / Jison `err.hash.loc` / JSON positions), source excerpts, unknown-icon warnings, architecture-beta hints
+  - `layoutCheck.ts` — finds overlaps in the rendered SVG (see "Layout check" below)
 
 **Examples:** `examples/` has one file per diagram type (architecture, flowchart, sequence, class with
-namespaces, state, ER, gantt, mindmap, Excalidraw). They feed the toolbar's Examples menu
+namespaces, state, ER, gantt, mindmap, Excalidraw), plus `architecture-flowchart.mmd`, the recommended
+way to draw an architecture overview (flowchart + subgraphs + icon nodes, laid out by ELK). They feed the toolbar's Examples menu
 (`import.meta.glob` in `Toolbar.svelte`), `examples/architecture.mmd` is the default template for new
 diagrams, and `npm run examples` / `bun run examples` renders all of them. Add a file there when touching a diagram type.
 
@@ -82,12 +84,36 @@ unless a look is requested. Mermaid theme variables can only give everything the
 `utils/applyLook.ts` post-processes the SVG *in the DOM* (it needs layout): top-level groups get
 consecutive hues (starting at the second when there are ungrouped nodes), nodes take their innermost
 group's hue by geometry, architecture icons get tiles, the architecture groups layer moves behind the
-services (Mermaid draws it on top), edge labels get dark text on white. It skips author-styled nodes
+services (Mermaid draws it on top), edge labels get dark text on white, flowchart icon nodes
+(`g.icon-shape`) get tiles like architecture services, and bold group titles are widened so they aren't
+clipped (Mermaid measured them at regular weight). It skips author-styled nodes
 (inline `fill`), state start/end dots and mindmap branches (colored via `cScale*`). Preview and
 `src/render.ts` both call it after inserting the SVG and export the serialized result. Adding a palette:
 `PALETTES` in looks.ts plus the list and help text in `cli/diagrams-hub.mjs`. Check changes with
 `node cli/diagrams-hub.mjs render examples/X.mmd -s solid` for each style — every diagram type has its
 own SVG structure.
+
+**Layout engine (ELK):** `mermaidConfig.ts` registers `@mermaid-js/layout-elk` and makes it the default
+for flowcharts, state and ER diagrams (`defaultLayout()`, via `mermaid.detectType`), because dagre routes
+edges through subgraphs and drops labels on group borders. Not for every type: Mermaid's `layout` is a
+global setting, mindmaps break with it and class diagrams get long detours around namespaces. A diagram's
+front matter (`config: layout: dagre`) still wins. **`@mermaid-js/layout-elk` is pinned to exactly 0.2.2**:
+0.2.3 bundles a complete copy of a newer Mermaid (renderer 9 MB instead of 5.7 MB) whose separate icon
+registry renders every flowchart icon node as "?", and 1.x needs Mermaid 12. Check icon nodes
+(`examples/architecture-flowchart.mmd`) before changing the version. architecture-beta can't use ELK
+(it has its own force layout) — that is why agents are steered towards flowcharts for architecture.
+
+**Layout check (`utils/layoutCheck.ts`):** after rendering (and `applyLook`), `checkLayout(svg, code)`
+measures the DOM and reports overlapping nodes, edges running through unrelated nodes (edge paths sampled
+with `getPointAtLength`; nodes touching an edge's ends are its endpoints), edge labels on nodes / on each
+other / crossed by another edge (flowchart labels know their edge via `data-id`), partly overlapping
+groups, nodes sticking out of a group, covered group titles, architecture services drawn inside a group
+they aren't declared `in`, and extreme aspect ratios. Results are `Diagnostic`s with `kind: 'layout'` and
+a source line via `sourceMap.ts`. The CLI prints them as `LAYOUT` lines (exit 0, or 1 with `--strict`);
+the app shows a count with a tooltip in the status bar. Node selectors: `g.node`, `g.icon-shape`,
+`g.image-shape`, `.architecture-service` — Mermaid's flowchart icon nodes are *not* `g.node`, so code
+that walks nodes (also `applyLook`) must include `g.icon-shape`. Thresholds are in SVG units; touching
+borders (< 3 units) are fine. When adding a check, make sure all examples stay free of LAYOUT lines.
 
 **Fonts:** Inter is bundled (`utils/fonts.ts`, `@fontsource/inter`); rendering waits for it because
 Mermaid measures text, and the PNG export inlines it (an `<img>` can't use page fonts).

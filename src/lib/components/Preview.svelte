@@ -7,6 +7,8 @@
   import { svgSize, normalizeSvgSize } from '../utils/svg';
   import { resolveTheme } from '../utils/looks';
   import { applyLook } from '../utils/applyLook';
+  import { checkLayout } from '../utils/layoutCheck';
+  import type { Diagnostic } from '../utils/diagnostics';
   import { fontsReady } from '../utils/fonts';
   import type { ThemeConfig } from '../types';
   import { locateMermaidElement, locateExcalidrawElement, type SourceRange } from '../utils/sourceMap';
@@ -17,11 +19,13 @@
     /** Rendered SVG (with the look applied) and the background to export it on */
     onrender?: (svg: string, background: string) => void;
     oneditlabel?: (oldLabel: string, newLabel: string) => void;
+    /** Layout problems (overlaps) of the rendered diagram, [] when there are none */
+    onlayout?: (issues: Diagnostic[]) => void;
     /** Called with the source range of a clicked element (null = nothing found) */
     onselect?: (range: SourceRange | null) => void;
   }
 
-  let { code, onerror, onrender, oneditlabel, onselect }: Props = $props();
+  let { code, onerror, onrender, oneditlabel, onselect, onlayout }: Props = $props();
 
   let svgContent = $state('');
   let isLoading = $state(true);
@@ -115,6 +119,7 @@
 
       if (error) {
         onerror(error);
+        onlayout?.([]);
         svgContent = '';
       } else {
         onerror(null);
@@ -128,6 +133,7 @@
           svg = new XMLSerializer().serializeToString(svgEl);
         }
         onrender?.(svg, theme.colors.background);
+        onlayout?.(svgEl && mode === 'mermaid' ? checkLayout(svgEl, code) : []);
 
         // Refit on first render, while auto-fitting, or when a different
         // diagram was loaded/pasted (other type or very different size)
@@ -144,6 +150,7 @@
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Rendering failed';
       onerror(message);
+      onlayout?.([]);
       svgContent = '';
     }
 

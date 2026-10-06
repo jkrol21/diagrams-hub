@@ -14,8 +14,10 @@
   import { detectDiagramMode } from './lib/utils/diagramMode';
   import type { DiagramDocument } from './lib/types';
   import type { SourceRange } from './lib/utils/sourceMap';
+  import type { Diagnostic } from './lib/utils/diagnostics';
 
   let error = $state<string | null>(null);
+  let layoutIssues = $state<Diagnostic[]>([]);
   let splitPosition = $state(50);
   let currentCode = $state('');
   let currentName = $state('Untitled');
@@ -212,6 +214,7 @@
           code={currentCode}
           onerror={handleError}
           onrender={handleRender}
+          onlayout={(issues) => (layoutIssues = issues)}
           oneditlabel={handleEditLabel}
           onselect={handleSelect}
         />
@@ -228,6 +231,7 @@
     {saveStatus}
     {lineCount}
     mode={diagramMode}
+    {layoutIssues}
   />
 </div>
 

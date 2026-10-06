@@ -82,19 +82,41 @@ OPTIONS
   -t, --theme FILE     Colors/fonts as JSON (the web app's Style panel -> "Copy JSON");
                        partial themes work: {"colors": {"clusterBkg": "#eef2f7"}}
       --svg PATH       Also write the SVG
+      --strict         Exit with code 1 when there are layout problems (the image is still written)
       --json           Machine-readable result on stdout:
                        {"ok", "mode", "look", "image", "svg", "width", "height", "error", "warnings"},
-                       error/warnings: {"message", "line", "column", "excerpt"}
+                       error/warnings: {"message", "line", "column", "excerpt"}; layout problems are
+                       warnings with "kind": "layout"
 
 EXIT CODES
-  0  OK (warnings, e.g. unknown icon names, may still be printed)
-  1  the diagram has an error — fix the code
+  0  OK (warnings, e.g. unknown icon names, and LAYOUT problems may still be printed)
+  1  the diagram has an error — fix the code (with --strict: also layout problems)
   2  the tool itself could not run (bad arguments, setup problem) — the message says why
 
 DIAGRAM TYPES
   Every Mermaid type (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram,
   gantt, mindmap, architecture-beta, ...) and Excalidraw JSON
   ({"type":"excalidraw","elements":[...]}). Examples: ${join(ROOT, 'examples')}
+
+LAYOUT PROBLEMS
+  Every rendered diagram is checked for overlaps; each one is printed as a LAYOUT line (with the
+  source line when known): nodes on top of each other, edges running through unrelated nodes,
+  edge labels on nodes, on each other or crossed by other edges, overlapping groups, nodes sticking
+  out of their group, covered group titles. A diagram with LAYOUT lines is not presentable — fix
+  them, render again and look at the PNG:
+  - System/architecture overviews with groups: prefer "flowchart LR" (or TB) with subgraphs over
+    architecture-beta. Flowcharts, state and ER diagrams use the ELK layout (orthogonal edges,
+    proper nesting); architecture-beta uses a force layout that often produces overlaps and
+    diagonal edges. Flowchart nodes can show the same icons:
+      api@{ icon: "lucide:server", form: "rounded", label: "API", pos: "b" }
+  - Fewer edges crossing the diagram: put strongly connected nodes in the same subgraph, declare
+    them in reading order, try the other direction (LR <-> TB).
+  - Shorter edge labels (1-3 words); move details into node labels or a note.
+  - Large diagrams: split into an overview and detail diagrams.
+  - architecture-beta: connect services that end up on top of each other with an edge (a:R --> L:b)
+    so the layout places them relative to each other.
+  Mermaid's classic layout instead of ELK: start the diagram with the front matter lines
+  "---", "config:", "  layout: dagre", "---".
 
 ARCHITECTURE-BETA CHEAT SHEET
   architecture-beta                        first line
@@ -107,8 +129,8 @@ ARCHITECTURE-BETA CHEAT SHEET
   Icons: lucide:<name> (~1,600, lucide.dev/icons), hub:<name> (service, vps, firewall,
   loadbalancer, queue, network, api, bucket, monitoring), logo:<name>. Unknown names render
   as "?" and are reported as warnings. IDs: letters, digits, _ or -; labels: no brackets.
-  Layout: services without an edge between them can end up on top of each other — check the
-  PNG and add an edge (e.g. a:R --> L:b) to place them relative to each other.
+  Layout: services without an edge between them can end up on top of each other — they are
+  reported as LAYOUT problems; add an edge (e.g. a:R --> L:b) to place them relative to each other.
 `;
 
 class UsageError extends Error {}
@@ -146,6 +168,7 @@ function parseArgs(argv) {
       case '-s': case '--style': opts.style = choice(arg, value(), STYLES); break;
       case '-p': case '--palette': opts.palette = choice(arg, value(), PALETTES); break;
       case '--json': opts.json = true; break;
+      case '--strict': opts.strict = true; break;
       case '-m': case '--max-size': {
         const n = Number(value());
         if (!Number.isFinite(n) || n < 50) throw new UsageError('--max-size must be a number >= 50');
@@ -520,7 +543,15 @@ function report(out, opts) {
     lines.push(`OK (${out.mode}${look}) rendered ${out.width}x${out.height}px`, `image: ${out.image}`);
     if (out.svg) lines.push(`svg: ${out.svg}`);
   }
-  for (const w of out.warnings) lines.push(`WARNING ${describe(w)}`);
+  const layout = out.warnings.filter((w) => w.kind === 'layout');
+  for (const w of out.warnings) {
+    if (w.kind !== 'layout') lines.push(`WARNING ${describe(w)}`);
+  }
+  for (const w of layout) lines.push(`LAYOUT ${describe(w).replace(/^(line \d+: )?Layout: /, '$1')}`);
+  if (layout.length) {
+    lines.push(`-> ${layout.length} layout problem${layout.length > 1 ? 's' : ''}: the image has overlaps and is not ` +
+      `ready to use. Change the diagram and render again (see "LAYOUT PROBLEMS" in help).`);
+  }
   process.stdout.write(lines.join('\n') + '\n');
 }
 
@@ -551,7 +582,8 @@ async function main() {
       const code = await readInput(opts);
       const out = await renderCode(code, opts);
       report(out, opts);
-      return out.ok ? 0 : 1;
+      const layoutProblems = out.warnings.some((w) => w.kind === 'layout');
+      return out.ok && !(opts.strict && layoutProblems) ? 0 : 1;
     }
   }
 }

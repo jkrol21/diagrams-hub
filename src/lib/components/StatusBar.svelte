@@ -1,15 +1,22 @@
 <script lang="ts">
   import type { SaveStatus } from '../types';
   import type { DiagramMode } from '../utils/diagramMode';
+  import type { Diagnostic } from '../utils/diagnostics';
 
   interface Props {
     documentName: string;
     saveStatus: SaveStatus;
     lineCount: number;
     mode?: DiagramMode;
+    /** Overlaps found in the rendered diagram (see layoutCheck.ts) */
+    layoutIssues?: Diagnostic[];
   }
 
-  let { documentName, saveStatus, lineCount, mode = 'mermaid' }: Props = $props();
+  let { documentName, saveStatus, lineCount, mode = 'mermaid', layoutIssues = [] }: Props = $props();
+
+  const layoutTitle = $derived(
+    layoutIssues.map((d) => (d.line ? `Line ${d.line}: ` : '') + d.message.replace(/^Layout: /, '')).join('\n')
+  );
 
   const statusLabels: Record<SaveStatus, string> = {
     saved: 'Saved',
@@ -30,6 +37,11 @@
     </span>
   </div>
   <div class="status-right">
+    {#if layoutIssues.length}
+      <span class="layout-issues" title={layoutTitle}>
+        ⚠ {layoutIssues.length} layout {layoutIssues.length === 1 ? 'issue' : 'issues'}
+      </span>
+    {/if}
     <span class="mode-badge" class:excalidraw={mode === 'excalidraw'}>
       {mode === 'excalidraw' ? 'Excalidraw' : 'Mermaid'}
     </span>
@@ -99,6 +111,11 @@
     background: #e9f3ff;
     color: #3b71ca;
     letter-spacing: 0.02em;
+  }
+
+  .layout-issues {
+    color: #b45309;
+    cursor: help;
   }
 
   .mode-badge.excalidraw {

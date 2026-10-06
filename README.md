@@ -27,6 +27,10 @@ To check a Mermaid or Excalidraw diagram and see what it looks like, run:
 
 - Success prints `image: /absolute/path/diagram.png` — open that PNG to inspect the diagram visually.
 - A syntax error prints `ERROR line X, column Y: ...` plus the offending source lines — fix and rerun.
+- `LAYOUT ...` lines mean the image has overlaps (nodes on top of each other, edges through nodes, covered
+  labels, overlapping groups) and is not ready to use — change the diagram and rerun until there are none.
+  For architecture overviews with groups prefer `flowchart LR` with subgraphs and icon nodes
+  (`api@{ icon: "lucide:server", form: "rounded", label: "API", pos: "b" }`) over `architecture-beta`.
 - Without a file, pipe the code in: `node /path/to/diagrams-hub/cli/diagrams-hub.mjs render - < diagram.mmd`
   (or a heredoc); the image path is printed the same way.
 - Colors are consistent and modern by default. To change them, add `%% style: soft|solid|outline` and/or

@@ -1,0 +1,25 @@
+%% Architecture overview as a flowchart: ELK layout (orthogonal edges, clean nesting) + icons
+flowchart LR
+    users@{ icon: "lucide:users", form: "rounded", label: "Users", pos: "b" }
+
+    subgraph edge [Edge]
+        cdn@{ icon: "lucide:globe", form: "rounded", label: "CDN", pos: "b" }
+        fw@{ icon: "hub:firewall", form: "rounded", label: "Firewall", pos: "b" }
+    end
+
+    subgraph backend [Backend Services]
+        app@{ icon: "hub:service", form: "rounded", label: "App Service", pos: "b" }
+        worker@{ icon: "lucide:zap", form: "rounded", label: "Worker", pos: "b" }
+        queue@{ icon: "hub:queue", form: "rounded", label: "Queue", pos: "b" }
+    end
+
+    subgraph data [Data Layer]
+        db@{ icon: "lucide:database", form: "rounded", label: "Database", pos: "b" }
+        storage@{ icon: "hub:bucket", form: "rounded", label: "Object Store", pos: "b" }
+    end
+
+    users -- HTTPS --> cdn --> fw --> app
+    app -- SQL --> db
+    app -- jobs --> queue --> worker
+    worker --> db
+    worker -- files --> storage

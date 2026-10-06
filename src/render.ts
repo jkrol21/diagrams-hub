@@ -15,6 +15,7 @@ import { locateError, findUnknownIcons, withHint, codeExcerpt, type Diagnostic }
 import { DEFAULT_THEME, normalizeTheme } from './lib/stores/theme';
 import { resolveTheme, parseLookDirectives, PALETTE_NAMES, LOOK_STYLES, type Look } from './lib/utils/looks';
 import { applyLook } from './lib/utils/applyLook';
+import { checkLayout } from './lib/utils/layoutCheck';
 import { fontsReady } from './lib/utils/fonts';
 import { svgToPngBlob } from './lib/utils/exportPng';
 import type { ThemeConfig } from './lib/types';
@@ -131,6 +132,7 @@ async function renderDiagramResult(
   out.innerHTML = svg;
   const svgEl = out.querySelector('svg')!;
   if (mode === 'mermaid' && resolved.look) applyLook(svgEl, resolved.look);
+  if (mode === 'mermaid') result.warnings.push(...checkLayout(svgEl, code));
   const vb = svgEl.viewBox.baseVal;
   result.width = vb && vb.width ? vb.width : svgEl.getBoundingClientRect().width;
   result.height = vb && vb.height ? vb.height : svgEl.getBoundingClientRect().height;

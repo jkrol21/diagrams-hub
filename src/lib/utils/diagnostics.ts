@@ -12,6 +12,8 @@ export interface Diagnostic {
   column?: number;
   /** Numbered source lines around `line` with a caret (see codeExcerpt) */
   excerpt?: string;
+  /** Set for problems of the rendered layout (overlaps), see layoutCheck.ts */
+  kind?: 'layout';
 }
 
 /** Icons Mermaid's architecture diagram ships without a prefix */

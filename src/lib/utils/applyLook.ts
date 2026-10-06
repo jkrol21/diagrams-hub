@@ -107,6 +107,22 @@ function styleGroup(group: Box, r: Roles) {
       set(t, 'font-weight', 600);
     }
     for (const icon of labelRoot.querySelectorAll('svg')) set(icon, 'color', r.groupText);
+    widenToContent(labelRoot);
+  }
+}
+
+/**
+ * Mermaid sizes HTML labels for regular weight; the bold group titles would be
+ * clipped at the end ("Backend Service"). Widen them around their center.
+ */
+function widenToContent(root: Element) {
+  for (const fo of root.querySelectorAll('foreignObject')) {
+    const content = fo.firstElementChild as HTMLElement | null;
+    const width = Number(fo.getAttribute('width'));
+    if (!content || !width || content.scrollWidth <= width) continue;
+    const extra = content.scrollWidth - width;
+    fo.setAttribute('width', String(content.scrollWidth));
+    fo.setAttribute('x', String(Number(fo.getAttribute('x') ?? 0) - extra / 2));
   }
 }
 
@@ -181,13 +197,33 @@ function styleService(service: Element, r: Roles) {
   }
 }
 
+/**
+ * Flowchart icon nodes (`id@{ icon: ... }`): colored tile like architecture
+ * services, label below it without the white label box
+ */
+function styleIconShape(node: Element, r: Roles) {
+  node.setAttribute('data-dh-styled', '');
+  const [fill, outline] = node.querySelectorAll(':scope > .icon-shape2 path');
+  if (fill) set(fill, 'fill', r.tileFill);
+  if (outline) {
+    set(outline, 'stroke', r.tileStroke);
+    set(outline, 'stroke-width', r.strokeWidth);
+  }
+  for (const icon of node.querySelectorAll(':scope > g[style*="color"]')) set(icon, 'color', r.icon);
+  // Mermaid gives the label a white box (`.icon-shape p`, `.icon-shape rect`)
+  for (const bg of node.querySelectorAll('.label p, .label .labelBkg')) set(bg, 'background-color', 'transparent');
+  for (const bg of node.querySelectorAll('.label rect')) set(bg, 'fill', 'transparent');
+  for (const t of node.querySelectorAll('.label span, .label p, .label div')) set(t, 'color', SLATE_800);
+  for (const t of node.querySelectorAll('.label text, .label tspan')) set(t, 'fill', SLATE_800);
+}
+
 export function applyLook(svg: SVGSVGElement, look: Look): void {
   const groups = collectGroups(svg);
   const services = [...svg.querySelectorAll('.architecture-service')]
     .map((el) => ({ el, group: groupOf(el.querySelector('svg, image') ?? el, groups) }));
   // Mindmap nodes are colored per branch through the palette's section colors (cScale*)
   const isMindmap = svg.getAttribute('aria-roledescription') === 'mindmap';
-  const nodes = [...svg.querySelectorAll(isMindmap ? ':not(*)' : 'g.node')]
+  const nodes = [...svg.querySelectorAll(isMindmap ? ':not(*)' : 'g.node, g.icon-shape')]
     .filter((el) => !/(^|[-_])(root_)?(start|end)([-_]|$)/.test(el.id) && !isAuthorStyled(el))
     .map((el) => ({ el, group: groupOf(el, groups) }));
 
@@ -202,7 +238,9 @@ export function applyLook(svg: SVGSVGElement, look: Look): void {
     layer.parentElement?.insertBefore(layer, layer.parentElement.firstChild);
   }
   for (const { el, group } of services) styleService(el, paletteRoles(look, hueOf(group)));
-  for (const { el, group } of nodes) styleNode(el, paletteRoles(look, hueOf(group)));
+  for (const { el, group } of nodes) {
+    (el.matches('.icon-shape') ? styleIconShape : styleNode)(el, paletteRoles(look, hueOf(group)));
+  }
   // Mindmap root: Mermaid derives its colors separately (and unreadably in some styles)
   for (const root of svg.querySelectorAll('g.node.section-root')) styleNode(root, paletteRoles(look, 0));
   if (isMindmap && look.style === 'solid') {

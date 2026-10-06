@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import elkLayouts from '@mermaid-js/layout-elk';
 import type { ThemeConfig } from '../types';
 import { hubIcons } from '../icons/hub';
 import { buildLogoIconPack } from '../icons/logos';
@@ -23,16 +24,37 @@ export async function registerArchitectureIcons(): Promise<void> {
   mermaid.registerIconPacks(packs);
 }
 
+// ELK: orthogonal edges and a proper hierarchical layout of nested groups
+mermaid.registerLayoutLoaders(elkLayouts);
+
+/**
+ * Diagram types laid out with ELK instead of Mermaid's default dagre, which
+ * routes edges through subgraphs and puts labels on group borders. Only
+ * these: Mermaid's `layout` setting is global, other types fail with it
+ * (mindmap) or come out worse (class diagrams: long detours around namespaces). A diagram can still choose in its front matter
+ * (`config: layout: dagre`), which wins over this default.
+ */
+const ELK_TYPES = new Set(['flowchart', 'flowchart-v2', 'flowchart-elk', 'stateDiagram', 'er']);
+
+export function defaultLayout(code: string): 'elk' | undefined {
+  try {
+    return ELK_TYPES.has(mermaid.detectType(code)) ? 'elk' : undefined;
+  } catch {
+    return undefined; // unknown type: mermaid.parse reports it
+  }
+}
+
 let activeTheme: ThemeConfig | null = null;
 
 /** Initialize Mermaid with a theme configuration */
-export function initializeMermaid(theme: ThemeConfig): void {
+export function initializeMermaid(theme: ThemeConfig, layout?: string): void {
   activeTheme = theme;
   mermaid.initialize({
     startOnLoad: false,
     theme: 'base',
     themeVariables: mapThemeToMermaid(theme),
     securityLevel: 'loose',
+    layout,
     fontFamily: theme.fonts.fontFamily,
     fontSize: theme.fonts.fontSize,
     architecture: {
@@ -95,6 +117,8 @@ export async function renderDiagram(
   elementId: string
 ): Promise<{ svg: string; error: string | null; diagnostic?: Diagnostic }> {
   try {
+    if (activeTheme) initializeMermaid(activeTheme, defaultLayout(code));
+
     // Validate syntax first
     const isValid = await mermaid.parse(code);
     if (!isValid) {
